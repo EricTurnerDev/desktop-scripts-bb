@@ -62,7 +62,6 @@
 ;;;;  Date: 2025-09-23
 
 ;; TODO:
-;; - Support --help command line option
 ;; - Option to continue if SMART fails
 ;; - Specify date/time format and tag for the log entries
 ;; - Better log management (logrotate)?
