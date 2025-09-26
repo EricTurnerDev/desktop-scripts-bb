@@ -19,7 +19,7 @@
            (java.time LocalDateTime ZoneId)
            (java.time.format DateTimeFormatter)))
 
-(def ^:const version "0.0.1")
+(def ^:const version "0.0.2")
 (def ^:const lock-file "/tmp/snapraid-aio.bb.lock")
 (def ^:const script-name "snapraid-aio.bb")
 
@@ -42,7 +42,6 @@
 ;;;;  Date: 2025-09-23
 
 ;; TODO:
-;; - Support --scrub-percent N command line option
 ;; - Support --help command line option
 ;; - Option to continue if SMART fails
 ;; - Specify date/time format and tag for the log entries
@@ -131,6 +130,11 @@
 
 (def cli-options
   [["-c" "--config FILE" "SnapRAID configuration file"]
+   ["-p"
+    "--scrub-percent PERCENT"
+    "Percentage of blocks for SnapRAID to scrub (0-100)"
+    :parse-fn (fn [s] (try (Long/parseLong s) (catch Exception _ nil)))
+    :validate [#(and (number? %) (<= 0 % 100)) "Must be an integer between 0 and 100"]]
    ["-v" "--version" "Version"]])
 
 (def parsed-args (parse-opts *command-line-args* cli-options))
@@ -332,6 +336,8 @@
 (log-info (str "Lock file " lock-file))
 (log-info (str "Data drives " (mapv :path (:data config))))
 (log-info (str "Parity drives " (mapv #(str (fs/parent %)) (:parity config))))
+(when-let [pct (:scrub-percent options)]
+  (log-info (str "Will scrub " pct "% of blocks")))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Run snapraid diff
@@ -411,7 +417,7 @@
   (let [{:keys [out err exit]} (shell {:out      :string
                                        :err      :string
                                        :continue true}
-                                      "snapraid" "--conf" config-path "scrub")
+                                      "snapraid" "--conf" config-path "--plan" (or (:scrub-percent options) 10) "scrub")
         result {:out out :err err :exit exit}]
     result))
 

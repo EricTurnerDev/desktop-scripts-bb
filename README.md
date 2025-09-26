@@ -1,7 +1,8 @@
 # snapraid-aio.bb
 
-> **All-in-one SnapRAID management script.**  
-> A [Babashka](https://github.com/babashka/babashka)-powered tool that handles preflight checks, drive health monitoring, logging, and SnapRAID operations — in one script.
+ **All-in-one SnapRAID management script.**  
+
+A [Babashka](https://github.com/babashka/babashka)-powered tool that handles preflight checks, drive health monitoring, logging, and SnapRAID operations — in one script.
 
 ---
 
@@ -24,7 +25,7 @@
     - Console + logfile with timestamps.
 - **Configurable**
     - Default SnapRAID configuration, overridable with `--config`.
-
+    - Default SnapRAID scrub percent, overridable with `--scrub-percent`.
 ---
 
 ## 🚀 Usage
@@ -35,15 +36,16 @@ sudo snapraid-aio.bb [options]
 
 ### Options
 
-| Flag              | Description                                    |
-|-------------------|------------------------------------------------|
-| `-c`, `--config`  | Path to SnapRAID configuration file (default). |
-| `-v`, `--version` | Display the version.                           |
+| Flag                    | Description                                        |
+|-------------------------|----------------------------------------------------|
+| `-c`, `--config`        | Path to SnapRAID configuration file.               |
+| `-p`, `--scrub-percent` | Percentage of blocks to scrub (0-100). Default 10. |
+| `-v`, `--version`       | Display the version.                               |
 
 Example:
 
 ```bash
-./snapraid-aio.bb --config /etc/snapraid.conf
+sudo snapraid-aio.bb --config /etc/snapraid.conf
 ```
 
 ---
@@ -52,7 +54,7 @@ Example:
 
 ### Requirements
 - [Babashka](https://github.com/babashka/babashka) (v1.3+ recommended)
-- SnapRAID installed and in `$PATH`
+- SnapRAID installed somewhere on the `$PATH`
 - Linux (tested on Linux Mint)
 - `util-linux` package (for `findmnt` and `mountpoint`)
 - `procps` package (for `pgrep`)
@@ -77,7 +79,7 @@ sudo snapraid-aio.bb --config /path/to/snapraid.conf
 ```
 
 Your SnapRAID config should define:
-- `data` or `disk` disks
+- `data` or `disk` drives
 - `parity` files
 - `content` files
 
@@ -96,7 +98,7 @@ Your SnapRAID config should define:
 
 1. Run:
    ```bash
-   sudo /opt/usr/sbin/snapraid-aio.bb --config /etc/snapraid.conf
+   sudo /usr/local/sbin/snapraid-aio.bb --config /etc/snapraid.conf
    ```
 2. Script will:
     - Check mounts and disk health
@@ -146,7 +148,6 @@ Ideas for future improvements:
 - Multiple SnapRAID config profiles
 - Customizable log path
 - Dry-run mode
-- Customizable scrub percent
 - Force running sync even if SMART tests fail
 - Better log management
 - Make scrub optional
