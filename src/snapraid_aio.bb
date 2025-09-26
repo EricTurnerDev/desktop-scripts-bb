@@ -18,7 +18,11 @@
      -c, --config         Path to the SnapRAID configuration file
      -h, --help           Show the help message
      -p, --scrub-percent  The percentage of blocks for SnapRAID to scrub
-     -v, --version        Show the version"
+     -v, --version        Show the version
+
+   AUTHOR:
+     Eric Turner
+     jittery-name-ninja@duck.com"
 
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
@@ -40,8 +44,8 @@
    ["-v" "--version" "Version"]])
 
 (def ^:const version "0.0.3")
-(def ^:const lock-file "/tmp/snapraid_aio.bb.lock")
 (def ^:const script-name "snapraid_aio.bb")
+(def ^:const lock-file (str "/tmp/" script-name ".lock"))
 
 (def ^:const exit-codes
   {:success          0
@@ -54,12 +58,6 @@
    :diff-fail        8})
 
 (defonce lock-state (atom nil))
-
-;;;; ---------------------------------------------------------------------------
-;;;; snapraid_aio.bb - Manage a DAS (Direct Attached Storage)
-;;;; ---------------------------------------------------------------------------
-;;;; Author: Eric Turner
-;;;;  Date: 2025-09-23
 
 ;; TODO:
 ;; - Option to continue if SMART fails
@@ -131,8 +129,11 @@
   (try (spit f s :append true)
        (catch Exception _ (binding [*out* *err*] (println "WARN: failed to write log")))))
 
-;; Root logs to /var/log/snapraid_aio.bb.log, everyone else to /tmp/snapraid_aio.bb.log
-(def log-file (if (= (uid) 0) "/var/log/snapraid_aio.bb.log" "/tmp/snapraid_aio.bb.log"))
+;; Root logs to /var/log/, everyone else to /tmp/
+(def log-file
+  (if (= (uid) 0)
+    (str "/var/log/" script-name ".log")
+    (str "/tmp/" script-name ".log")))
 
 (defn log-info [msg]
   (let [ts (now-ts)]
@@ -287,7 +288,7 @@
     (log-error "Error: This script must be run as root (use sudo).")
     (System/exit (:preflight-fail exit-codes))))
 
-;; Check that snapraid exists
+;; Check that the snapraid command exists
 (when-not (program-exists? "snapraid")
   (log-error "SnapRAID not found")
   (System/exit (:snapraid-missing exit-codes)))
@@ -297,7 +298,7 @@
   (log-error "mountpoint command was not found")
   (System/exit (:preflight-fail exit-codes)))
 
-;; Check that findmnt command exists
+;; Check that the findmnt command exists
 (when-not (program-exists? "findmnt")
   (log-error "findmnt command was not found")
   (System/exit (:preflight-fail exit-codes)))
@@ -331,10 +332,10 @@
 (defn smart-healthy?
   "Returns true if smartctl reports overall health as PASSED, else false."
   [device]
-  (let [{:keys [out err exit]} (shell {:out      :string
-                                       :err      :string
-                                       :continue true}
-                                      "smartctl" "-H" device)]
+  (let [{:keys [out exit]} (shell {:out      :string
+                                   :err      :string
+                                   :continue true}
+                                  "smartctl" "-H" device)]
     (and (zero? exit)
          (or (str/includes? out "PASSED")
              (str/includes? out "OK")))))
@@ -349,7 +350,7 @@
 ;;; Log the startup
 ;;; ----------------------------------------------------------------------------
 
-(log-info "Running snapraid_aio.bb...")
+(log-info (str "Running " script-name " ..."))
 (log-info (str script-name " version " version))
 (log-info (str "Using configuration from " config-path))
 (log-info (str "Logging to " log-file))
