@@ -6,7 +6,7 @@
    All-in-one SnapRAID management script.
 
    This script reads the SnapRAID configuration, performs pre-flight checks (e.g. all drives mounted, dependencies
-   present, etc), then runs SnapRAID commands:
+   present, etc.), then runs SnapRAID commands:
    - diff is run to determine if any changes have been made.
    - sync is only run if there are changes.
    - scrub is run to check data and parity for errors.
@@ -15,10 +15,11 @@
      ./snapraid_aio.bb [OPTIONS]
 
    OPTIONS:
-     -c, --config         Path to the SnapRAID configuration file
-     -h, --help           Show the help message
-     -p, --scrub-percent  The percentage of blocks for SnapRAID to scrub
-     -v, --version        Show the version
+     -c, --config          Path to the SnapRAID configuration file
+     -h, --help            Show the help message
+     -i, --ignore-smart    Continue even when S.M.A.R.T. tests indicate problems
+     -p, --scrub-percent   The percentage of blocks for SnapRAID to scrub
+     -v, --version         Show the version
 
    AUTHOR:
      Eric Turner
@@ -41,6 +42,7 @@
     "Percentage of blocks for SnapRAID to scrub (0-100)"
     :parse-fn (fn [s] (try (Long/parseLong s) (catch Exception _ nil)))
     :validate [#(and (number? %) (<= 0 % 100)) "Must be an integer between 0 and 100"]]
+   ["-i" "--ignore-smart" "Continue even when S.M.A.R.T. tests indicate problems"]
    ["-v" "--version" "Version"]])
 
 (def ^:const version "0.0.3")
@@ -48,28 +50,17 @@
 (def ^:const lock-file (str "/tmp/" script-name ".lock"))
 
 (def ^:const exit-codes
-  {:success          0
-   :preflight-fail   2                                      ; mounts, RO, parity missing
-   :smart-fail       3
-   :snapraid-missing 4
-   :sync-fail        5
-   :scrub-fail       6
-   :lock-fail        7
-   :diff-fail        8})
+  {:success        0
+   :fail           1
+   :preflight-fail 2
+   :smart-fail     3
+   :snapraid-fail  4
+   :sync-fail      5
+   :scrub-fail     6
+   :lock-fail      7
+   :diff-fail      8})
 
 (defonce lock-state (atom nil))
-
-;; TODO:
-;; - Option to continue if SMART fails
-;; - Specify date/time format and tag for the log entries
-;; - Better log management (logrotate)?
-;; - Make scrub optional
-;; - Save file permissions somewhere so they can be restored after a snapraid fix
-;; - Spin down disks with hd-idle
-;; - Support notifications: email, healthchecks.io, telegram, discord
-;; - Configure retention days
-;; - Check if newer version of script is available
-;;
 
 ;;; ----------------------------------------------------------------------------
 ;;; General file and shell functions
@@ -165,14 +156,14 @@
 ;;; ----------------------------------------------------------------------------
 (when (:help options)
   (println (:doc (meta (the-ns 'snapraid-aio))))
-  (System/exit 0))
+  (System/exit (:success exit-codes)))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Show the version
 ;;; ----------------------------------------------------------------------------
 (when (:version options)
   (println script-name "version" version)
-  (System/exit 0))
+  (System/exit (:success exit-codes)))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Make sure the script isn't already being run
@@ -291,7 +282,7 @@
 ;; Check that the snapraid command exists
 (when-not (program-exists? "snapraid")
   (log-error "SnapRAID not found")
-  (System/exit (:snapraid-missing exit-codes)))
+  (System/exit (:snapraid-fail exit-codes)))
 
 ;; Check that the mountpoint command exists
 (when-not (program-exists? "mountpoint")
@@ -328,6 +319,10 @@
   (log-error "Another snapraid process is running")
   (System/exit (:preflight-fail exit-codes)))
 
+;;; ----------------------------------------------------------------------------
+;;; S.M.A.R.T. Disk Checks
+;;; ----------------------------------------------------------------------------
+
 ;; Check that disk drives are all healthy.
 (defn smart-healthy?
   "Returns true if smartctl reports overall health as PASSED, else false."
@@ -344,7 +339,8 @@
       devices (mapv mount-source data-drives)]
   (when-not (every? smart-healthy? devices)
     (log-error "Some drives are unhealthy")
-    (System/exit (:smart-fail exit-codes))))
+    (when-not (:ignore-smart options)
+      (System/exit (:smart-fail exit-codes)))))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Log the startup
@@ -451,4 +447,4 @@
     (System/exit (:scrub-fail exit-codes))))
 
 (log-info "Done")
-(System/exit 0)
+(System/exit (:success exit-codes))

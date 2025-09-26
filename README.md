@@ -36,17 +36,18 @@ snapraid_aio.bb [options]
 
 ### Options
 
-| Flag                    | Description                                        |
-|-------------------------|----------------------------------------------------|
-| `-c`, `--config`        | Path to SnapRAID configuration file.               |
-| `-h`, `--help`          | Display helpful information.                       |
-| `-p`, `--scrub-percent` | Percentage of blocks to scrub (0-100). Default 10. |
-| `-v`, `--version`       | Display the version.                               |
+| Flag                    | Description                                            |
+|-------------------------|--------------------------------------------------------|
+| `-c`, `--config`        | Path to SnapRAID configuration file.                   |
+| `-h`, `--help`          | Display helpful information.                           |
+| `-i`, `--ignore-smart`  | Continue even when S.M.A.R.T. tests indicate problems. |
+| `-p`, `--scrub-percent` | Percentage of blocks to scrub (0-100). Default 10.     |
+| `-v`, `--version`       | Display the version.                                   |
 
 Examples:
 
 ```bash
-snapraid_aio.bb --config /etc/snapraid.conf --scrub-percent 20
+snapraid_aio.bb --config /etc/snapraid.conf --scrub-percent 20 --ignore-smart
 snapraid_aio.bb --help
 snapraid_aio.bb --version
 ```
@@ -113,17 +114,17 @@ Your SnapRAID config should define:
 
 ## 📜 Exit Codes
 
-| Code | Meaning                           |
-|------|-----------------------------------|
-| `0`  | Success                           |
-| `2`  | Preflight failure (mounts/RO/etc) |
-| `3`  | SMART check failed                |
-| `4`  | SnapRAID missing                  |
-| `5`  | Sync failed                       |
-| `6`  | Scrub failed                      |
-| `7`  | Unable to obtain a lock           |
-| `8`  | Diff failed                       |
-
+| Code | Meaning                          |
+|------|----------------------------------|
+| `0`  | Success                          |
+| `1`  | Failed                           |
+| `2`  | Preflight failed (mounts/RO/etc) |
+| `3`  | S.M.A.R.T. check failed          |
+| `4`  | SnapRAID failed                  |
+| `5`  | Sync failed                      |
+| `6`  | Scrub failed                     |
+| `7`  | Unable to obtain a lock          |
+| `8`  | Diff failed                      |
 
 ---
 
@@ -149,14 +150,13 @@ There are several common tests that need to be checked when modifying the script
 ## 🤝 Contributing
 
 Ideas for future improvements:
-- Notifications (email, Slack, Telegram, etc.)
+- Notifications (email, Slack, Telegram, healthchecks.io, etc.)
 - Multiple SnapRAID config profiles
-- Customizable log path
 - Dry-run mode
-- Force running sync even if SMART tests fail
-- Better log management
+- Better log management (rotate logs)
+- Customizable log path
 - Make scrub optional
-- Specify date/time format
+- Specify date/time format for log entries
 - Save file permissions so they can be restored if you ever need to run `snapraid fix`
 - Spin down disks with `hd-idle`
 - Indicate if a newer version of the script is available
