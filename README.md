@@ -1,4 +1,4 @@
-# snapraid-aio.bb
+# snapraid_aio.bb
 
  **All-in-one SnapRAID management script.**  
 
@@ -25,13 +25,13 @@ A [Babashka](https://github.com/babashka/babashka)-powered tool that handles pre
     - Console + logfile with timestamps.
 - **Configurable**
     - Default SnapRAID configuration, overridable with `--config`.
-    - Default SnapRAID scrub percent, overridable with `--scrub-percent`.
+    - Set the percent of blocks SnapRAID will scrub with `--scrub-percent`.
 ---
 
 ## 🚀 Usage
 
 ```bash
-sudo snapraid-aio.bb [options]
+snapraid_aio.bb [options]
 ```
 
 ### Options
@@ -39,13 +39,16 @@ sudo snapraid-aio.bb [options]
 | Flag                    | Description                                        |
 |-------------------------|----------------------------------------------------|
 | `-c`, `--config`        | Path to SnapRAID configuration file.               |
+| `-h`, `--help`          | Display helpful information.                       |
 | `-p`, `--scrub-percent` | Percentage of blocks to scrub (0-100). Default 10. |
 | `-v`, `--version`       | Display the version.                               |
 
-Example:
+Examples:
 
 ```bash
-sudo snapraid-aio.bb --config /etc/snapraid.conf
+snapraid_aio.bb --config /etc/snapraid.conf --scrub-percent 20
+snapraid_aio.bb --help
+snapraid_aio.bb --version
 ```
 
 ---
@@ -53,29 +56,30 @@ sudo snapraid-aio.bb --config /etc/snapraid.conf
 ## 📦 Installation
 
 ### Requirements
+- Linux (tested on Linux Mint)
 - [Babashka](https://github.com/babashka/babashka) (v1.3+ recommended)
 - SnapRAID installed somewhere on the `$PATH`
-- Linux (tested on Linux Mint)
 - `util-linux` package (for `findmnt` and `mountpoint`)
 - `procps` package (for `pgrep`)
 - `smartmontools` package (for `smartctl`)
 
 ### System-wide (optional)
-Put `snapraid-aio.bb` somewhere in root's `$PATH`, e.g.:
+Put `snapraid_aio.bb` somewhere in root's `$PATH`, e.g.:
 
 ```bash
-sudo cp snapraid-aio.bb /usr/local/sbin/snapraid-aio.bb
+sudo cp snapraid_aio.bb /usr/local/sbin/
+sudo chmod +x /usr/local/sbin/snapraid_aio.bb
 ```
 
 ---
 
 ## ⚙️ Configuration
 
-By default, `snapraid-aio.bb` looks for `/usr/local/etc/snapraid.conf`, then `/etc/snapraid.conf`.  
+By default, `snapraid_aio.bb` looks for `/usr/local/etc/snapraid.conf`, then `/etc/snapraid.conf`.  
 Override with `--config`:
 
 ```bash
-sudo snapraid-aio.bb --config /path/to/snapraid.conf
+snapraid_aio.bb --config /path/to/snapraid.conf
 ```
 
 Your SnapRAID config should define:
@@ -88,7 +92,7 @@ Your SnapRAID config should define:
 ## 🔒 Safety Notes
 
 - Must be run as **root** (or via `sudo`) for disk and S.M.A.R.T. checks.
-- Lockfile: `/tmp/snapraid-aio.bb.lock` (auto-released when the process exits).
+- Lockfile: `/tmp/snapraid_aio.bb.lock` (auto-released when the process exits).
 - If another instance is active, the script will exit safely.
 - If one or more data or parity drives aren't mounted, the script will exit safely.
 - If SMART tests show any disk errors, the script will exit safely.
@@ -98,7 +102,7 @@ Your SnapRAID config should define:
 
 1. Run:
    ```bash
-   sudo /usr/local/sbin/snapraid-aio.bb --config /etc/snapraid.conf
+   sudo /usr/local/sbin/snapraid_aio.bb --config /etc/snapraid.conf
    ```
 2. Script will:
     - Check mounts and disk health
@@ -126,7 +130,7 @@ Your SnapRAID config should define:
 ## 🔧 Development
 
 ### Project Layout
-- `src/snapraid-aio.bb` — main Babashka script
+- `src/snapraid_aio.bb` — main Babashka script
 
 ### Testing
 
@@ -136,6 +140,7 @@ There are several common tests that need to be checked when modifying the script
 - Running concurrently
 - Running when SnapRAID is already running
 - Checking version
+- Checking help
 - Testing when snapraid diff indicates changes
 - Testing when snapraid diff does not indicate changes
 
@@ -169,11 +174,11 @@ Fork, hack, and send a PR 🚀
 ## 🖼️ Example Log Output
 
 ```
-2025-09-25 18:43:01 [INFO] Running snapraid-aio.bb...
+2025-09-25 18:43:01 [INFO] Running snapraid_aio.bb...
 2025-09-25 18:43:01 [INFO] Script version 0.0.1
 2025-09-25 18:43:01 [INFO] Using configuration from /etc/snapraid.conf
-2025-09-25 18:43:01 [INFO] Logging to /var/log/snapraid-aio.bb.log
-2025-09-25 18:43:01 [INFO] Lock file /tmp/snapraid-aio.bb.lock
+2025-09-25 18:43:01 [INFO] Logging to /var/log/snapraid_aio.bb.log
+2025-09-25 18:43:01 [INFO] Lock file /tmp/snapraid_aio.bb.lock
 2025-09-25 18:43:01 [INFO] Data drives ["/mnt/das1" "/mnt/das2" "/mnt/das3" "/mnt/das4" "/mnt/das5" "/mnt/das6"]
 2025-09-25 18:43:01 [INFO] Parity drives ["/mnt/das-parity"]
 2025-09-25 18:43:01 [INFO] Running snapraid diff...

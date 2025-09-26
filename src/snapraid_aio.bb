@@ -1,14 +1,24 @@
 #!/usr/bin/env bb
 
 (ns snapraid-aio
-  "Manage a DAS (Direct Attached Storage) with SnapRAID.
+  ;; The namespace docstring is also output when the --help option is used.
+  "
+   All-in-one SnapRAID management script.
 
-   Usage:
-     ./snapraid_aio.bb [options]
+   This script reads the SnapRAID configuration, performs pre-flight checks (e.g. all drives mounted, dependencies
+   present, etc), then runs SnapRAID commands:
+   - diff is run to determine if any changes have been made.
+   - sync is only run if there are changes.
+   - scrub is run to check data and parity for errors.
 
-   Options:
-     -h, --help   Show this help message and exit
-     -c, --config Path to the SnapRAID configuration file"
+   USAGE:
+     ./snapraid_aio.bb [OPTIONS]
+
+   OPTIONS:
+     -c, --config         Path to the SnapRAID configuration file
+     -h, --help           Show the help message
+     -p, --scrub-percent  The percentage of blocks for SnapRAID to scrub
+     -v, --version        Show the version"
 
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
@@ -19,8 +29,18 @@
            (java.time LocalDateTime ZoneId)
            (java.time.format DateTimeFormatter)))
 
-(def ^:const version "0.0.2")
-(def ^:const lock-file "/tmp/snapraid-aio.bb.lock")
+(def ^:const cli-options
+  [["-c" "--config FILE" "SnapRAID configuration file"]
+   ["-h" "--help" "Show the help message"]
+   ["-p"
+    "--scrub-percent PERCENT"
+    "Percentage of blocks for SnapRAID to scrub (0-100)"
+    :parse-fn (fn [s] (try (Long/parseLong s) (catch Exception _ nil)))
+    :validate [#(and (number? %) (<= 0 % 100)) "Must be an integer between 0 and 100"]]
+   ["-v" "--version" "Version"]])
+
+(def ^:const version "0.0.3")
+(def ^:const lock-file "/tmp/snapraid_aio.bb.lock")
 (def ^:const script-name "snapraid_aio.bb")
 
 (def ^:const exit-codes
@@ -52,6 +72,7 @@
 ;; - Support notifications: email, healthchecks.io, telegram, discord
 ;; - Configure retention days
 ;; - Check if newer version of script is available
+;;
 
 ;;; ----------------------------------------------------------------------------
 ;;; General file and shell functions
@@ -111,8 +132,8 @@
   (try (spit f s :append true)
        (catch Exception _ (binding [*out* *err*] (println "WARN: failed to write log")))))
 
-;; Root logs to /var/log/snapraid-aio.bb.log, everyone else to /tmp/snapraid-aio.bb.log
-(def log-file (if (= (uid) 0) "/var/log/snapraid-aio.bb.log" "/tmp/snapraid-aio.bb.log"))
+;; Root logs to /var/log/snapraid_aio.bb.log, everyone else to /tmp/snapraid_aio.bb.log
+(def log-file (if (= (uid) 0) "/var/log/snapraid_aio.bb.log" "/tmp/snapraid_aio.bb.log"))
 
 (defn log-info [msg]
   (let [ts (now-ts)]
@@ -128,15 +149,6 @@
 ;;; Process command-line arguments
 ;;; ----------------------------------------------------------------------------
 
-(def cli-options
-  [["-c" "--config FILE" "SnapRAID configuration file"]
-   ["-p"
-    "--scrub-percent PERCENT"
-    "Percentage of blocks for SnapRAID to scrub (0-100)"
-    :parse-fn (fn [s] (try (Long/parseLong s) (catch Exception _ nil)))
-    :validate [#(and (number? %) (<= 0 % 100)) "Must be an integer between 0 and 100"]]
-   ["-v" "--version" "Version"]])
-
 (def parsed-args (parse-opts *command-line-args* cli-options))
 
 ;; Check for command line errors
@@ -147,6 +159,13 @@
       (System/exit (:preflight-fail exit-codes)))))
 
 (def options (:options parsed-args))
+
+;;; ----------------------------------------------------------------------------
+;;; Show the help
+;;; ----------------------------------------------------------------------------
+(when (:help options)
+  (println (:doc (meta (the-ns 'snapraid-aio))))
+  (System/exit 0))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Show the version
@@ -261,7 +280,9 @@
 (def config (-> config-path slurp parse-snapraid-config))
 
 ;; Make sure the script is run with root privileges
-
+;; TODO: Instead of forcing to run as root, check permissions on the resources we need to access, and error if
+;; the current user doesn't have permissions to access those resources. That way the system admin can choose how to
+;; run this script however they see fit.
 (let [id (uid)]
   (when-not (= 0 id)
     (log-error "Error: This script must be run as root (use sudo).")
@@ -311,10 +332,10 @@
 (defn smart-healthy?
   "Returns true if smartctl reports overall health as PASSED, else false."
   [device]
-  (let [{:keys [out exit]} (shell {:out      :string
-                                   :err      :string
-                                   :continue true}
-                                  "smartctl" "-H" device)]
+  (let [{:keys [out err exit]} (shell {:out      :string
+                                       :err      :string
+                                       :continue true}
+                                      "smartctl" "-H" device)]
     (and (zero? exit)
          (or (str/includes? out "PASSED")
              (str/includes? out "OK")))))
