@@ -4,7 +4,7 @@
   "Manage a DAS (Direct Attached Storage) with SnapRAID.
 
    Usage:
-     ./snapraid-aio.bb [options]
+     ./snapraid_aio.bb [options]
 
    Options:
      -h, --help   Show this help message and exit
@@ -21,7 +21,7 @@
 
 (def ^:const version "0.0.2")
 (def ^:const lock-file "/tmp/snapraid-aio.bb.lock")
-(def ^:const script-name "snapraid-aio.bb")
+(def ^:const script-name "snapraid_aio.bb")
 
 (def ^:const exit-codes
   {:success          0
@@ -36,7 +36,7 @@
 (defonce lock-state (atom nil))
 
 ;;;; ---------------------------------------------------------------------------
-;;;; snapraid-aio.bb - Manage a DAS (Direct Attached Storage)
+;;;; snapraid_aio.bb - Manage a DAS (Direct Attached Storage)
 ;;;; ---------------------------------------------------------------------------
 ;;;; Author: Eric Turner
 ;;;;  Date: 2025-09-23
@@ -329,7 +329,7 @@
 ;;; Log the startup
 ;;; ----------------------------------------------------------------------------
 
-(log-info "Running snapraid-aio.bb...")
+(log-info "Running snapraid_aio.bb...")
 (log-info (str script-name " version " version))
 (log-info (str "Using configuration from " config-path))
 (log-info (str "Logging to " log-file))
