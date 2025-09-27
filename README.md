@@ -114,17 +114,17 @@ Your SnapRAID config should define:
 
 ## 📜 Exit Codes
 
-| Code | Meaning                          |
-|------|----------------------------------|
-| `0`  | Success                          |
-| `1`  | Failed                           |
-| `2`  | Preflight failed (mounts/RO/etc) |
-| `3`  | S.M.A.R.T. check failed          |
-| `4`  | SnapRAID failed                  |
-| `5`  | Sync failed                      |
-| `6`  | Scrub failed                     |
-| `7`  | Unable to obtain a lock          |
-| `8`  | Diff failed                      |
+| Code | Meaning                 |
+|------|-------------------------|
+| `0`  | Success                 |
+| `1`  | Failed                  |
+| `2`  | Preflight failed        |
+| `3`  | S.M.A.R.T. check failed |
+| `4`  | SnapRAID failed         |
+| `5`  | Sync failed             |
+| `6`  | Scrub failed            |
+| `7`  | Unable to obtain a lock |
+| `8`  | Diff failed             |
 
 ---
 
@@ -150,15 +150,14 @@ There are several common tests that need to be checked when modifying the script
 ## 🤝 Contributing
 
 Ideas for future improvements:
+- Save file permissions so they can be restored if you ever need to run `snapraid fix`
+- Spin down disks with `hd-idle`
+- Make scrub optional
 - Notifications (email, Slack, Telegram, healthchecks.io, etc.)
-- Multiple SnapRAID config profiles
 - Dry-run mode
 - Better log management (rotate logs)
 - Customizable log path
-- Make scrub optional
 - Specify date/time format for log entries
-- Save file permissions so they can be restored if you ever need to run `snapraid fix`
-- Spin down disks with `hd-idle`
 - Indicate if a newer version of the script is available
 
 Fork, hack, and send a PR 🚀

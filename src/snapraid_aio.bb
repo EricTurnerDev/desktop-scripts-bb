@@ -45,7 +45,7 @@
    ["-i" "--ignore-smart" "Continue even when S.M.A.R.T. tests indicate problems"]
    ["-v" "--version" "Version"]])
 
-(def ^:const version "0.0.3")
+(def ^:const version "0.0.4")
 (def ^:const script-name "snapraid_aio.bb")
 (def ^:const lock-file (str "/tmp/" script-name ".lock"))
 
