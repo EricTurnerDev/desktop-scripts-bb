@@ -8,8 +8,8 @@
    This script reads the SnapRAID configuration, performs pre-flight checks (e.g. all drives mounted, dependencies
    present, etc.), then runs SnapRAID commands:
    - diff is run to determine if any changes have been made.
+   - Permissions are backed up only if there are changes.
    - sync is only run if there are changes.
-   - permissions are saved
    - scrub is run to check data and parity for errors.
 
    USAGE:
@@ -418,7 +418,7 @@
            (LocalDateTime/now (ZoneId/of "America/New_York"))))
 
 (defn hostname []
-  (-> (shell {:out :string :err :string} "hostname")
+  (-> (shell {:out :string :err :string :continue true} "hostname")
       :out str/trim))
 
 (defn sanitize-name [s] ; safe for filenames
@@ -428,12 +428,13 @@
   (when (fs/exists? drive-path)
     (->> (fs/list-dir drive-path)
          (map str)
-         (filter #(re-find #"\.zip$" %))
+         (filter #(re-find #"acl.*\.zip$" %))
          (sort))))
 
 (defn prune-old-archives! [drive-path]
   (let [archives (vec (list-archives drive-path))]
     (when (> (count archives) perms-archive-retention-count)
+      (println archives)
       (doseq [old (take (- (count archives) perms-archive-retention-count) archives)]
         (try (fs/delete-if-exists old)
              (catch Exception _))))))
