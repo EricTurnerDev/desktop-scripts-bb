@@ -452,7 +452,6 @@
         manifest   (fs/path tmp-root "manifest.edn")]
 
     ;; 1) dump .facl per drive into tmp
-    (log-info "Saving permissions...")
     (doseq [{:keys [name path]} drives]
       (let [safe-name (sanitize-name name)
             out-file  (fs/path tmp-root (str safe-name ".facl"))]
@@ -490,6 +489,15 @@
 
     (str archive)))
 
+;; Only back up permissions if differences were detected.
+(if (and (= (:exit diff-result) 2)
+         (some #(pos? (long (or (% diff-result) 0)))
+               [:added :removed :updated :moved :copied :restored]))
+  (do
+    (log-info "Saving permissions...")
+    (backup-permissions! {:drives (:data config)}))
+  (log-info "Skipping saving permissions"))
+
 ;;; ----------------------------------------------------------------------------
 ;;; Run snapraid sync
 ;;; ----------------------------------------------------------------------------
@@ -505,12 +513,10 @@
     result))
 
 ;; Only run snapraid sync if differences were detected.
-
 (if (and (= (:exit diff-result) 2)
          (some #(pos? (long (or (% diff-result) 0)))
                [:added :removed :updated :moved :copied :restored]))
   (do
-    (backup-permissions! {:drives (:data config)})
     (log-info "Running snapraid sync...")
     (let [sync-result (snapraid-sync)]
       (if (= (:exit sync-result) 1)
