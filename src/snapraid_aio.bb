@@ -9,6 +9,7 @@
    present, etc.), then runs SnapRAID commands:
    - diff is run to determine if any changes have been made.
    - sync is only run if there are changes.
+   - permissions are saved
    - scrub is run to check data and parity for errors.
 
    USAGE:
@@ -25,7 +26,8 @@
      Eric Turner
      jittery-name-ninja@duck.com"
 
-  (:require [clojure.string :as str]
+  (:require [clojure.pprint :as pp]
+            [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.tools.cli :refer [parse-opts]]
             [babashka.fs :as fs]
@@ -45,20 +47,22 @@
    ["-i" "--ignore-smart" "Continue even when S.M.A.R.T. tests indicate problems"]
    ["-v" "--version" "Version"]])
 
-(def ^:const version "0.0.4")
+(def ^:const version "0.0.5")
 (def ^:const script-name "snapraid_aio.bb")
+(def ^:const perms-archive-retention-count 1)
 (def ^:const lock-file (str "/tmp/" script-name ".lock"))
 
 (def ^:const exit-codes
-  {:success        0
-   :fail           1
-   :preflight-fail 2
-   :smart-fail     3
-   :snapraid-fail  4
-   :sync-fail      5
-   :scrub-fail     6
-   :lock-fail      7
-   :diff-fail      8})
+  {:success          0
+   :fail             1
+   :preflight-fail   2
+   :smart-fail       3
+   :snapraid-fail    4
+   :sync-fail        5
+   :scrub-fail       6
+   :lock-fail        7
+   :diff-fail        8
+   :permissions-fail 9})
 
 (defonce lock-state (atom nil))
 
@@ -294,6 +298,16 @@
   (log-error "findmnt command was not found")
   (System/exit (:preflight-fail exit-codes)))
 
+;; Check that the getfacl command exists
+(when-not (program-exists? "getfacl")
+  (log-error "getfacl command was not found")
+  (System/exit (:preflight-fail exit-codes)))
+
+;; Check that the zip command exists
+(when-not (program-exists? "zip")
+  (log-error "zip command was not found")
+  (System/exit (:preflight-fail exit-codes)))
+
 ;; Check that all the data drives are mounted
 (let [data-drives (:data config)]
   (when-not (every? mounted? (mapv :path data-drives))
@@ -425,6 +439,87 @@
   (log-info "Skipping snapraid sync"))
 
 ;;; ----------------------------------------------------------------------------
+;;; Back up permissions
+;;; ----------------------------------------------------------------------------
+
+(defn now-tag []
+  (.format (DateTimeFormatter/ofPattern "yyyyMMdd-HHmmss")
+           (LocalDateTime/now (ZoneId/of "America/New_York"))))
+
+(defn hostname []
+  (-> (shell {:out :string :err :string} "hostname")
+      :out str/trim))
+
+(defn sanitize-name [s] ; safe for filenames
+  (-> s (str/replace #"[^A-Za-z0-9._-]+" "_")))
+
+(defn list-archives [drive-path]
+  (when (fs/exists? drive-path)
+    (->> (fs/list-dir drive-path)
+         (map str)
+         (filter #(re-find #"\.zip$" %))
+         (sort))))
+
+(defn prune-old-archives! [drive-path]
+  (let [archives (vec (list-archives drive-path))]
+    (when (> (count archives) perms-archive-retention-count)
+      (doseq [old (take (- (count archives) perms-archive-retention-count) archives)]
+        (try (fs/delete-if-exists old)
+             (catch Exception _))))))
+
+(defn backup-permissions!
+  "Dumps ACLs for each drive and copies a single zip archive to every drive.
+   Options:
+   - drives: vector of {:name :path}
+   Returns the path to the temp zip archive."
+  [{:keys [drives]}]
+
+  (let [tmp-root   (fs/create-temp-dir "snapraid-perms-")
+        ts         (now-tag)
+        host       (hostname)
+        archive    (fs/path tmp-root (format "acl-%s-%s.zip" host ts))
+        manifest   (fs/path tmp-root "manifest.edn")]
+
+    ;; 1) dump .facl per drive into tmp
+    (log-info "Saving permissions...")
+    (doseq [{:keys [name path]} drives]
+      (let [safe-name (sanitize-name name)
+            out-file  (fs/path tmp-root (str safe-name ".facl"))]
+        ;; --one-file-system prevents crossing into other mounts
+        ;; --absolute-names includes absolute paths so --restore works from anywhere
+        ;; -n uses numeric IDs (stable even if usernames differ later)
+        (let [cmd ["bash" "-lc" (format "getfacl -R --absolute-names --one-file-system -n %s" (pr-str path))]
+              res (apply shell {:out :string :err :string :continue true} cmd)]
+          (when-not (zero? (:exit res))
+            (log-error (str "Unable to get ACLs on " path ": " (:err res)))
+            (System/exit (:permissions-fail exit-codes)))
+          (spit (str out-file) (:out res)))))
+
+    ;; 2) write a small manifest for convenience
+    (spit (str manifest) (with-out-str (pp/pprint {:created  ts
+                                             :hostname host
+                                             :drives   (map #(select-keys % [:name :path]) drives)})))
+
+    ;; 3) zip all .facl + manifest into one archive
+    (let [to-zip (->> (fs/list-dir tmp-root)
+                      (map str)
+                      (filter #(re-find #"\.(facl|edn)$" %))
+                      (into []))]
+      (when (seq to-zip)
+        (let [res (apply shell {:out :string :err :string :continue true} "zip" "-j" (str archive) to-zip)]
+          (when-not (zero? (:exit res))
+            (log-error (str "Unable to create zip file of permissions: " (:err res)))
+            (System/exit (:permissions-fail exit-codes))))))
+
+    ;; 4) copy the single archive to each drive under /.snapraid-perms/
+    (doseq [{:keys [path]} drives]
+      (let [dest (fs/path path (fs/file-name archive))]
+        (fs/copy archive dest {:replace-existing true})
+        (prune-old-archives! path)))
+
+    (str archive)))
+
+;;; ----------------------------------------------------------------------------
 ;;; Run snapraid scrub
 ;;; ----------------------------------------------------------------------------
 
@@ -444,7 +539,9 @@
 (if (= (:exit scrub-result) 1)
   (do
     (log-error "snapraid scrub failed")
-    (System/exit (:scrub-fail exit-codes))))
+    (System/exit (:scrub-fail exit-codes)))
+  ;; Successful scrub, so back up permissions
+  (backup-permissions! {:drives (:data config)}))
 
 (log-info "Done")
 (System/exit (:success exit-codes))

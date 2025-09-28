@@ -109,22 +109,24 @@ Your SnapRAID config should define:
     - Check mounts and disk health
     - Run `snapraid diff`
     - If changes exist, proceed with `sync` (or alert you)
+    - Saves file permissions in case they need to be restored
 
 ---
 
 ## 📜 Exit Codes
 
-| Code | Meaning                 |
-|------|-------------------------|
-| `0`  | Success                 |
-| `1`  | Failed                  |
-| `2`  | Preflight failed        |
-| `3`  | S.M.A.R.T. check failed |
-| `4`  | SnapRAID failed         |
-| `5`  | Sync failed             |
-| `6`  | Scrub failed            |
-| `7`  | Unable to obtain a lock |
-| `8`  | Diff failed             |
+| Code | Meaning                   |
+|------|---------------------------|
+| `0`  | Success                   |
+| `1`  | Failed                    |
+| `2`  | Preflight failed          |
+| `3`  | S.M.A.R.T. check failed   |
+| `4`  | SnapRAID failed           |
+| `5`  | Sync failed               |
+| `6`  | Scrub failed              |
+| `7`  | Unable to obtain a lock   |
+| `8`  | Diff failed               |
+| `9`  | Saving permissions failed |
 
 ---
 
@@ -144,13 +146,13 @@ There are several common tests that need to be checked when modifying the script
 - Checking help
 - Testing when snapraid diff indicates changes
 - Testing when snapraid diff does not indicate changes
+- Testing that permissions are saved, and can be restored
 
 ---
 
 ## 🤝 Contributing
 
 Ideas for future improvements:
-- Save file permissions so they can be restored if you ever need to run `snapraid fix`
 - Spin down disks with `hd-idle`
 - Make scrub optional
 - Notifications (email, Slack, Telegram, healthchecks.io, etc.)
