@@ -410,35 +410,6 @@
   (log-info "No differences detected"))
 
 ;;; ----------------------------------------------------------------------------
-;;; Run snapraid sync
-;;; ----------------------------------------------------------------------------
-
-(defn snapraid-sync
-  "Runs snapraid sync."
-  []
-  (let [{:keys [out err exit]} (shell {:out      :string
-                                       :err      :string
-                                       :continue true}
-                                      "snapraid" "--conf" config-path "--quiet" "sync")
-        result {:out out :err err :exit exit}]
-    result))
-
-;; Only run snapraid sync if differences were detected.
-
-(if (and (= (:exit diff-result) 2)
-         (some #(pos? (long (or (% diff-result) 0)))
-               [:added :removed :updated :moved :copied :restored]))
-  (do
-    (log-info "Running snapraid sync...")
-    (let [sync-result (snapraid-sync)]
-      (if (= (:exit sync-result) 1)
-        (do
-          (log-error "snapraid sync failed")
-          (System/exit (:sync-fail exit-codes))))))
-
-  (log-info "Skipping snapraid sync"))
-
-;;; ----------------------------------------------------------------------------
 ;;; Back up permissions
 ;;; ----------------------------------------------------------------------------
 
@@ -520,6 +491,36 @@
     (str archive)))
 
 ;;; ----------------------------------------------------------------------------
+;;; Run snapraid sync
+;;; ----------------------------------------------------------------------------
+
+(defn snapraid-sync
+  "Runs snapraid sync."
+  []
+  (let [{:keys [out err exit]} (shell {:out      :string
+                                       :err      :string
+                                       :continue true}
+                                      "snapraid" "--conf" config-path "--quiet" "sync")
+        result {:out out :err err :exit exit}]
+    result))
+
+;; Only run snapraid sync if differences were detected.
+
+(if (and (= (:exit diff-result) 2)
+         (some #(pos? (long (or (% diff-result) 0)))
+               [:added :removed :updated :moved :copied :restored]))
+  (do
+    (backup-permissions! {:drives (:data config)})
+    (log-info "Running snapraid sync...")
+    (let [sync-result (snapraid-sync)]
+      (if (= (:exit sync-result) 1)
+        (do
+          (log-error "snapraid sync failed")
+          (System/exit (:sync-fail exit-codes))))))
+
+  (log-info "Skipping snapraid sync"))
+
+;;; ----------------------------------------------------------------------------
 ;;; Run snapraid scrub
 ;;; ----------------------------------------------------------------------------
 
@@ -539,9 +540,7 @@
 (if (= (:exit scrub-result) 1)
   (do
     (log-error "snapraid scrub failed")
-    (System/exit (:scrub-fail exit-codes)))
-  ;; Successful scrub, so back up permissions
-  (backup-permissions! {:drives (:data config)}))
+    (System/exit (:scrub-fail exit-codes))))
 
 (log-info "Done")
 (System/exit (:success exit-codes))
