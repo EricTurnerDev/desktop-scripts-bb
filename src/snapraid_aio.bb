@@ -436,7 +436,6 @@
 (defn prune-old-archives! [drive-path]
   (let [archives (vec (list-archives drive-path))]
     (when (> (count archives) perms-archive-retention-count)
-      (println archives)
       (doseq [old (take (- (count archives) perms-archive-retention-count) archives)]
         (try (fs/delete-if-exists old)
              (catch Exception _))))))
@@ -505,8 +504,9 @@
 ;;; Run snapraid sync
 ;;; ----------------------------------------------------------------------------
 
-(defn snapraid-sync
-  "Runs snapraid sync."
+(defn snapraid-sync!
+  "Runs snapraid sync.
+  Use with caution. Once you sync, deleted files are effectively gone from the parity, making them unrecoverable."
   []
   (let [{:keys [out err exit]} (shell {:out      :string
                                        :err      :string
@@ -521,7 +521,7 @@
                [:added :removed :updated :moved :copied :restored]))
   (do
     (log-info "Running snapraid sync...")
-    (let [sync-result (snapraid-sync)]
+    (let [sync-result (snapraid-sync!)]
       (if (= (:exit sync-result) 1)
         (do
           (log-error "snapraid sync failed")
