@@ -20,6 +20,7 @@
      -h, --help            Show the help message
      -i, --ignore-smart    Continue even when S.M.A.R.T. tests indicate problems
      -p, --scrub-percent   The percentage of blocks for SnapRAID to scrub
+     -s, --skip-scrub      Don't run SnapRAID scrub
      -v, --version         Show the version
 
    AUTHOR:
@@ -39,12 +40,13 @@
 (def ^:const cli-options
   [["-c" "--config FILE" "SnapRAID configuration file"]
    ["-h" "--help" "Show the help message"]
+   ["-i" "--ignore-smart" "Continue even when S.M.A.R.T. tests indicate problems"]
    ["-p"
     "--scrub-percent PERCENT"
     "Percentage of blocks for SnapRAID to scrub (0-100)"
     :parse-fn (fn [s] (try (Long/parseLong s) (catch Exception _ nil)))
     :validate [#(and (number? %) (<= 0 % 100)) "Must be an integer between 0 and 100"]]
-   ["-i" "--ignore-smart" "Continue even when S.M.A.R.T. tests indicate problems"]
+   ["-s" "--skip-scrub" "Don't run SnapRAID scrub"]
    ["-v" "--version" "Version"]])
 
 (def ^:const version "0.0.5")
@@ -421,7 +423,7 @@
   (-> (shell {:out :string :err :string :continue true} "hostname")
       :out str/trim))
 
-(defn sanitize-name [s] ; safe for filenames
+(defn sanitize-name [s]                                     ; safe for filenames
   (-> s (str/replace #"[^A-Za-z0-9._-]+" "_")))
 
 (defn list-archives [drive-path]
@@ -446,16 +448,16 @@
    Returns the path to the temp zip archive."
   [{:keys [drives]}]
 
-  (let [tmp-root   (fs/create-temp-dir "snapraid-perms-")
-        ts         (now-tag)
-        host       (hostname)
-        archive    (fs/path tmp-root (format "acl-%s-%s.zip" host ts))
-        manifest   (fs/path tmp-root "manifest.edn")]
+  (let [tmp-root (fs/create-temp-dir "snapraid-perms-")
+        ts (now-tag)
+        host (hostname)
+        archive (fs/path tmp-root (format "acl-%s-%s.zip" host ts))
+        manifest (fs/path tmp-root "manifest.edn")]
 
     ;; 1) dump .facl per drive into tmp
     (doseq [{:keys [name path]} drives]
       (let [safe-name (sanitize-name name)
-            out-file  (fs/path tmp-root (str safe-name ".facl"))]
+            out-file (fs/path tmp-root (str safe-name ".facl"))]
         ;; --one-file-system prevents crossing into other mounts
         ;; --absolute-names includes absolute paths so --restore works from anywhere
         ;; -n uses numeric IDs (stable even if usernames differ later)
@@ -468,8 +470,8 @@
 
     ;; 2) write a small manifest for convenience
     (spit (str manifest) (with-out-str (pp/pprint {:created  ts
-                                             :hostname host
-                                             :drives   (map #(select-keys % [:name :path]) drives)})))
+                                                   :hostname host
+                                                   :drives   (map #(select-keys % [:name :path]) drives)})))
 
     ;; 3) zip all .facl + manifest into one archive
     (let [to-zip (->> (fs/list-dir tmp-root)
@@ -541,13 +543,15 @@
         result {:out out :err err :exit exit}]
     result))
 
-(log-info "Running snapraid scrub...")
-(def scrub-result (snapraid-scrub))
-
-(if (= (:exit scrub-result) 1)
+(if-not (:skip-scrub options)
   (do
-    (log-error "snapraid scrub failed")
-    (System/exit (:scrub-fail exit-codes))))
+    (log-info "Running snapraid scrub...")
+    (let [scrub-result (snapraid-scrub)]
+      (if (= (:exit scrub-result) 1)
+        (do
+          (log-error "snapraid scrub failed")
+          (System/exit (:scrub-fail exit-codes))))))
+  (log-info "Skipping scrub"))
 
 (log-info "Done")
 (System/exit (:success exit-codes))

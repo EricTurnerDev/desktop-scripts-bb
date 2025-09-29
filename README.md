@@ -42,6 +42,7 @@ snapraid_aio.bb [options]
 | `-h`, `--help`          | Display helpful information.                           |
 | `-i`, `--ignore-smart`  | Continue even when S.M.A.R.T. tests indicate problems. |
 | `-p`, `--scrub-percent` | Percentage of blocks to scrub (0-100). Default 10.     |
+| `-s`, `--skip-scrub`    | Don't run SnapRAID scrub.                              |
 | `-v`, `--version`       | Display the version.                                   |
 
 Examples:
@@ -154,7 +155,6 @@ There are several common tests that need to be checked when modifying the script
 
 Ideas for future improvements:
 - Spin down disks with `hd-idle`
-- Make scrub optional
 - Notifications (email, Slack, Telegram, healthchecks.io, etc.)
 - Dry-run mode
 - Better log management (rotate logs)
