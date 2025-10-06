@@ -30,9 +30,10 @@
   (:require [clojure.pprint :as pp]
             [clojure.string :as str]
             [clojure.java.io :as io]
-            [clojure.tools.cli :refer [parse-opts]]
+            [clojure.tools.cli :as cli]
             [babashka.fs :as fs]
-            [babashka.process :refer [shell sh]])
+            [babashka.process :refer [shell sh]]
+            [logging :as log])
   (:import (java.io RandomAccessFile)
            (java.time LocalDateTime ZoneId)
            (java.time.format DateTimeFormatter)))
@@ -116,43 +117,24 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Set up logging
 ;;; ----------------------------------------------------------------------------
-(defn now-ts
-  "Gets the current timestamp"
-  []
-  (.format (LocalDateTime/now (ZoneId/systemDefault))
-           (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss")))
-
-(defn- try-spit [f s]
-  (try (spit f s :append true)
-       (catch Exception _ (binding [*out* *err*] (println "WARN: failed to write log")))))
 
 ;; Root logs to /var/log/, everyone else to /tmp/
-(def log-file
-  (if (= (uid) 0)
-    (str "/var/log/" script-name ".log")
-    (str "/tmp/" script-name ".log")))
-
-(defn log-info [msg]
-  (let [ts (now-ts)]
-    (println msg)
-    (try-spit log-file (str ts " [INFO] " msg "\n"))))
-
-(defn log-error [msg]
-  (let [ts (now-ts)]
-    (.println System/err msg)
-    (try-spit log-file (str ts " [ERROR] " msg "\n"))))
+(let [log-file (if (= (uid) 0)
+                 (str "/var/log/" script-name ".log")
+                 (str "/tmp/" script-name ".log"))]
+  (log/configure! {:file log-file}))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Process command-line arguments
 ;;; ----------------------------------------------------------------------------
 
-(def parsed-args (parse-opts *command-line-args* cli-options))
+(def parsed-args (cli/parse-opts *command-line-args* cli-options))
 
 ;; Check for command line errors
 (let [{:keys [errors]} parsed-args]
   (when errors
     (binding [*out* *err*]
-      (doseq [e errors] (log-error e))
+      (doseq [e errors] (log/error e))
       (System/exit (:preflight-fail exit-codes)))))
 
 (def options (:options parsed-args))
@@ -202,7 +184,7 @@
                                (try (io/delete-file lock-file true) (catch Exception _))))))
 
 (when-not (obtain-lock!)
-  (log-error "Another instance is already running. Exiting.")
+  (log/error "Another instance is already running. Exiting.")
   (System/exit (:lock-fail exit-codes)))
 
 ;;; ----------------------------------------------------------------------------
@@ -271,7 +253,7 @@
 
 (if (not config-path)
   (do
-    (log-error "No readable snapraid.conf was found.")
+    (log/error "No readable snapraid.conf was found.")
     (System/exit (:preflight-fail exit-codes))))
 
 (def config (-> config-path slurp parse-snapraid-config))
@@ -282,45 +264,45 @@
 ;; run this script however they see fit.
 (let [id (uid)]
   (when-not (= 0 id)
-    (log-error "Error: This script must be run as root (use sudo).")
+    (log/error "Error: This script must be run as root (use sudo).")
     (System/exit (:preflight-fail exit-codes))))
 
 ;; Check that the snapraid command exists
 (when-not (program-exists? "snapraid")
-  (log-error "SnapRAID not found")
+  (log/error "SnapRAID not found")
   (System/exit (:snapraid-fail exit-codes)))
 
 ;; Check that the mountpoint command exists
 (when-not (program-exists? "mountpoint")
-  (log-error "mountpoint command was not found")
+  (log/error "mountpoint command was not found")
   (System/exit (:preflight-fail exit-codes)))
 
 ;; Check that the findmnt command exists
 (when-not (program-exists? "findmnt")
-  (log-error "findmnt command was not found")
+  (log/error "findmnt command was not found")
   (System/exit (:preflight-fail exit-codes)))
 
 ;; Check that the getfacl command exists
 (when-not (program-exists? "getfacl")
-  (log-error "getfacl command was not found")
+  (log/error "getfacl command was not found")
   (System/exit (:preflight-fail exit-codes)))
 
 ;; Check that the zip command exists
 (when-not (program-exists? "zip")
-  (log-error "zip command was not found")
+  (log/error "zip command was not found")
   (System/exit (:preflight-fail exit-codes)))
 
 ;; Check that all the data drives are mounted
 (let [data-drives (:data config)]
   (when-not (every? mounted? (mapv :path data-drives))
-    (log-error "Not all of the data drives are mounted")
+    (log/error "Not all of the data drives are mounted")
     (System/exit (:preflight-fail exit-codes))))
 
 ;; Check that all the parity drives are mounted
 (let [parity-files (:parity config)
       parity-drives (mapv fs/parent parity-files)]
   (when-not (every? mounted? parity-drives)
-    (log-error "Not all of the parity drives are mounted")
+    (log/error "Not all of the parity drives are mounted")
     (System/exit (:preflight-fail exit-codes))))
 
 ;; Check that snapraid isn't already running.
@@ -332,7 +314,7 @@
     (zero? (:exit res))))
 
 (when (snapraid-running?)
-  (log-error "Another snapraid process is running")
+  (log/error "Another snapraid process is running")
   (System/exit (:preflight-fail exit-codes)))
 
 ;;; ----------------------------------------------------------------------------
@@ -354,7 +336,7 @@
 (let [data-drives (mapv :path (:data config))
       devices (mapv mount-source data-drives)]
   (when-not (every? smart-healthy? devices)
-    (log-error "Some drives are unhealthy")
+    (log/error "Some drives are unhealthy")
     (when-not (:ignore-smart options)
       (System/exit (:smart-fail exit-codes)))))
 
@@ -362,15 +344,15 @@
 ;;; Log the startup
 ;;; ----------------------------------------------------------------------------
 
-(log-info (str "Running " script-name " ..."))
-(log-info (str script-name " version " version))
-(log-info (str "Using configuration from " config-path))
-(log-info (str "Logging to " log-file))
-(log-info (str "Lock file " lock-file))
-(log-info (str "Data drives " (mapv :path (:data config))))
-(log-info (str "Parity drives " (mapv #(str (fs/parent %)) (:parity config))))
+(log/info (str "Running " script-name " ..."))
+(log/info (str script-name " version " version))
+(log/info (str "Using configuration from " config-path))
+(log/info (str "Logging to " (log/get-log-file)))
+(log/info (str "Lock file " lock-file))
+(log/info (str "Data drives " (mapv :path (:data config))))
+(log/info (str "Parity drives " (mapv #(str (fs/parent %)) (:parity config))))
 (when-let [pct (:scrub-percent options)]
-  (log-info (str "Will scrub " pct "% of blocks")))
+  (log/info (str "Will scrub " pct "% of blocks")))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Run snapraid diff
@@ -397,19 +379,19 @@
       (merge (parse-diff-output out) result)
       result)))
 
-(log-info "Running snapraid diff...")
+(log/info "Running snapraid diff...")
 (def diff-result (snapraid-diff))
 
 (def ^:const diff-keys [:equal :added :removed :updated :moved :copied :restored])
 
 (condp = (:exit diff-result)
   1 (do
-      (log-error "snapraid diff failed")
+      (log/error "snapraid diff failed")
       (System/exit (:diff-fail exit-codes)))
   2 (doseq [k diff-keys]
       (when-let [v (get diff-result k)]
-        (log-info (str (str/capitalize (name k)) ": " v))))
-  (log-info "No differences detected"))
+        (log/info (str (str/capitalize (name k)) ": " v))))
+  (log/info "No differences detected"))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Back up permissions
@@ -463,7 +445,7 @@
         (let [cmd ["bash" "-lc" (format "getfacl -R --absolute-names --one-file-system -n %s" (pr-str path))]
               res (apply shell {:out :string :err :string :continue true} cmd)]
           (when-not (zero? (:exit res))
-            (log-error (str "Unable to get ACLs on " path ": " (:err res)))
+            (log/error (str "Unable to get ACLs on " path ": " (:err res)))
             (System/exit (:permissions-fail exit-codes)))
           (spit (str out-file) (:out res)))))
 
@@ -480,7 +462,7 @@
       (when (seq to-zip)
         (let [res (apply shell {:out :string :err :string :continue true} "zip" "-j" (str archive) to-zip)]
           (when-not (zero? (:exit res))
-            (log-error (str "Unable to create zip file of permissions: " (:err res)))
+            (log/error (str "Unable to create zip file of permissions: " (:err res)))
             (System/exit (:permissions-fail exit-codes))))))
 
     ;; 4) copy the single archive to each drive under /.snapraid-perms/
@@ -496,9 +478,9 @@
          (some #(pos? (long (or (% diff-result) 0)))
                [:added :removed :updated :moved :copied :restored]))
   (do
-    (log-info "Saving permissions...")
+    (log/info "Saving permissions...")
     (backup-permissions! {:drives (:data config)}))
-  (log-info "Skipping saving permissions"))
+  (log/info "Skipping saving permissions"))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Run snapraid sync
@@ -520,14 +502,14 @@
          (some #(pos? (long (or (% diff-result) 0)))
                [:added :removed :updated :moved :copied :restored]))
   (do
-    (log-info "Running snapraid sync...")
+    (log/info "Running snapraid sync...")
     (let [sync-result (snapraid-sync!)]
       (if (= (:exit sync-result) 1)
         (do
-          (log-error "snapraid sync failed")
+          (log/error "snapraid sync failed")
           (System/exit (:sync-fail exit-codes))))))
 
-  (log-info "Skipping snapraid sync"))
+  (log/info "Skipping snapraid sync"))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Run snapraid scrub
@@ -545,13 +527,13 @@
 
 (if-not (:skip-scrub options)
   (do
-    (log-info "Running snapraid scrub...")
+    (log/info "Running snapraid scrub...")
     (let [scrub-result (snapraid-scrub)]
       (if (= (:exit scrub-result) 1)
         (do
-          (log-error "snapraid scrub failed")
+          (log/error "snapraid scrub failed")
           (System/exit (:scrub-fail exit-codes))))))
-  (log-info "Skipping scrub"))
+  (log/info "Skipping scrub"))
 
-(log-info "Done")
+(log/info "Done")
 (System/exit (:success exit-codes))

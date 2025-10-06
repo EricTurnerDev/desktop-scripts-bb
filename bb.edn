@@ -1,0 +1,17 @@
+{:paths ["src" "scripts"]
+ :tasks
+ {build
+  (do
+    (shell "mkdir -p out")
+    (shell "rm -f out/snapraid_aio.bb")
+
+    ;; Create the uberscript
+    (shell "bb uberscript ./out/snapraid_aio.bb ./src/snapraid_aio.bb")
+
+    ;; prepend shebang
+    (shell "sed -i '1i #!/usr/bin/env bb' out/snapraid_aio.bb")
+
+    ;; make it executable
+    (shell "chmod +x out/snapraid_aio.bb")
+
+    (println "Build ./out/snapraid_aio.bb with shebang and exec permissions"))}}
