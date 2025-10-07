@@ -26,18 +26,17 @@
    AUTHOR:
      jittery-name-ninja@duck.com"
 
-  (:require [clojure.pprint :as pp]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.tools.cli :as cli]
             [babashka.fs :as fs]
             [babashka.process :refer [shell sh]]
             [snapraid]
             [snapraid-config :as srconf]
             [drive]
+            [exit-codes]
             [logging :as log]
-            [lock])
-  (:import (java.time LocalDateTime ZoneId)
-           (java.time.format DateTimeFormatter)))
+            [lock]
+            [permissions :as perms]))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Constants.
@@ -60,18 +59,6 @@
 (def ^:const perms-archive-retention-count 1)
 (def ^:const lock-file (str "/tmp/" script-name ".lock"))
 (def ^:const diff-keys [:equal :added :removed :updated :moved :copied :restored])
-
-(def ^:const exit-codes
-  {:success          0
-   :fail             1
-   :preflight-fail   2
-   :smart-fail       3
-   :snapraid-fail    4
-   :sync-fail        5
-   :scrub-fail       6
-   :lock-fail        7
-   :diff-fail        8
-   :permissions-fail 9})
 
 (defonce lock-state (atom nil))
 
@@ -99,7 +86,7 @@
     (when errors
       (binding [*out* *err*]
         (doseq [e errors] (log/error e))
-        (System/exit (:preflight-fail exit-codes))))
+        (System/exit (:preflight-fail exit-codes/codes))))
     parsed-args))
 
 (defn snapraid-running?
@@ -110,86 +97,6 @@
                     :continue true}
                    "pgrep" "-f" "-l" "\\bsnapraid(\\s|$)")]
     (zero? (:exit res))))
-
-;;; ----------------------------------------------------------------------------
-;;; Permissions back-up functions.
-;;; ----------------------------------------------------------------------------
-
-(defn now-tag []
-  (.format (DateTimeFormatter/ofPattern "yyyyMMdd-HHmmss")
-           (LocalDateTime/now (ZoneId/of "America/New_York"))))
-
-(defn hostname []
-  (-> (shell {:out :string :err :string :continue true} "hostname")
-      :out str/trim))
-
-(defn sanitize-name [s]                                     ; safe for filenames
-  (-> s (str/replace #"[^A-Za-z0-9._-]+" "_")))
-
-(defn list-archives [drive-path]
-  (when (fs/exists? drive-path)
-    (->> (fs/list-dir drive-path)
-         (map str)
-         (filter #(re-find #"acl.*\.zip$" %))
-         (sort))))
-
-(defn prune-old-archives! [drive-path]
-  (let [archives (vec (list-archives drive-path))]
-    (when (> (count archives) perms-archive-retention-count)
-      (doseq [old (take (- (count archives) perms-archive-retention-count) archives)]
-        (try (fs/delete-if-exists old)
-             (catch Exception _))))))
-
-(defn backup-permissions!
-  "Dumps ACLs for each drive and copies a single zip archive to every drive.
-   Options:
-   - drives: vector of {:name :path}
-   Returns the path to the temp zip archive."
-  [{:keys [drives]}]
-
-  (let [tmp-root (fs/create-temp-dir "snapraid-perms-")
-        ts (now-tag)
-        host (hostname)
-        archive (fs/path tmp-root (format "acl-%s-%s.zip" host ts))
-        manifest (fs/path tmp-root "manifest.edn")]
-
-    ;; 1) dump .facl per drive into tmp
-    (doseq [{:keys [name path]} drives]
-      (let [safe-name (sanitize-name name)
-            out-file (fs/path tmp-root (str safe-name ".facl"))]
-        ;; --one-file-system prevents crossing into other mounts
-        ;; --absolute-names includes absolute paths so --restore works from anywhere
-        ;; -n uses numeric IDs (stable even if usernames differ later)
-        (let [cmd ["bash" "-lc" (format "getfacl -R --absolute-names --one-file-system -n %s" (pr-str path))]
-              res (apply shell {:out :string :err :string :continue true} cmd)]
-          (when-not (zero? (:exit res))
-            (log/error (str "Unable to get ACLs on " path ": " (:err res)))
-            (System/exit (:permissions-fail exit-codes)))
-          (spit (str out-file) (:out res)))))
-
-    ;; 2) write a small manifest for convenience
-    (spit (str manifest) (with-out-str (pp/pprint {:created  ts
-                                                   :hostname host
-                                                   :drives   (map #(select-keys % [:name :path]) drives)})))
-
-    ;; 3) zip all .facl + manifest into one archive
-    (let [to-zip (->> (fs/list-dir tmp-root)
-                      (map str)
-                      (filter #(re-find #"\.(facl|edn)$" %))
-                      (into []))]
-      (when (seq to-zip)
-        (let [res (apply shell {:out :string :err :string :continue true} "zip" "-j" (str archive) to-zip)]
-          (when-not (zero? (:exit res))
-            (log/error (str "Unable to create zip file of permissions: " (:err res)))
-            (System/exit (:permissions-fail exit-codes))))))
-
-    ;; 4) copy the single archive to each drive under /.snapraid-perms/
-    (doseq [{:keys [path]} drives]
-      (let [dest (fs/path path (fs/file-name archive))]
-        (fs/copy archive dest {:replace-existing true})
-        (prune-old-archives! path)))
-
-    (str archive)))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Main processing.
@@ -210,7 +117,7 @@
 
     (when-not config
       (log/error "No readable snapraid.conf was found.")
-      (System/exit (:preflight-fail exit-codes)))
+      (System/exit (:preflight-fail exit-codes/codes)))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Handle --help or --version if they were used.
@@ -219,12 +126,12 @@
     ;; Show the help message
     (when (:help options)
       (println (:doc (meta (the-ns 'snapraid-aio))))
-      (System/exit (:success exit-codes)))
+      (System/exit (:success exit-codes/codes)))
 
     ;; Show the version
     (when (:version options)
       (println script-name "version" version)
-      (System/exit (:success exit-codes)))
+      (System/exit (:success exit-codes/codes)))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Prevent other instances of the script from running.
@@ -235,7 +142,7 @@
     ;; Obtain the lock
     (when-not (lock/obtain-lock! lock-file lock-state)
       (log/error "Another instance is already running. Exiting.")
-      (System/exit (:lock-fail exit-codes)))
+      (System/exit (:lock-fail exit-codes/codes)))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Run preflight checks.
@@ -248,45 +155,45 @@
     (let [id (uid)]
       (when-not (= 0 id)
         (log/error "Error: This script must be run as root (use sudo).")
-        (System/exit (:preflight-fail exit-codes))))
+        (System/exit (:preflight-fail exit-codes/codes))))
 
     ;; Check that the snapraid command exists
     (when-not (program-exists? "snapraid")
       (log/error "SnapRAID not found")
-      (System/exit (:snapraid-fail exit-codes)))
+      (System/exit (:snapraid-fail exit-codes/codes)))
 
     ;; Check that the mountpoint command exists
     (when-not (program-exists? "mountpoint")
       (log/error "mountpoint command was not found")
-      (System/exit (:preflight-fail exit-codes)))
+      (System/exit (:preflight-fail exit-codes/codes)))
 
     ;; Check that the findmnt command exists
     (when-not (program-exists? "findmnt")
       (log/error "findmnt command was not found")
-      (System/exit (:preflight-fail exit-codes)))
+      (System/exit (:preflight-fail exit-codes/codes)))
 
     ;; Check that the getfacl command exists
     (when-not (program-exists? "getfacl")
       (log/error "getfacl command was not found")
-      (System/exit (:preflight-fail exit-codes)))
+      (System/exit (:preflight-fail exit-codes/codes)))
 
     ;; Check that the zip command exists
     (when-not (program-exists? "zip")
       (log/error "zip command was not found")
-      (System/exit (:preflight-fail exit-codes)))
+      (System/exit (:preflight-fail exit-codes/codes)))
 
     ;; Check that all the data drives are mounted
     (let [data-drives (:data config)]
       (when-not (every? drive/mounted? (mapv :path data-drives))
         (log/error "Not all of the data drives are mounted")
-        (System/exit (:preflight-fail exit-codes))))
+        (System/exit (:preflight-fail exit-codes/codes))))
 
     ;; Check that all the parity drives are mounted
     (let [parity-files (:parity config)
           parity-drives (mapv fs/parent parity-files)]
       (when-not (every? drive/mounted? parity-drives)
         (log/error "Not all of the parity drives are mounted")
-        (System/exit (:preflight-fail exit-codes))))
+        (System/exit (:preflight-fail exit-codes/codes))))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Make sure the script isn't already being run.
@@ -294,7 +201,7 @@
 
     (when (snapraid-running?)
       (log/error "Another snapraid process is running")
-      (System/exit (:preflight-fail exit-codes)))
+      (System/exit (:preflight-fail exit-codes/codes)))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Run the S.M.A.R.T. Disk Checks.
@@ -305,7 +212,7 @@
       (when-not (every? drive/smart-healthy? devices)
         (log/error "Some drives are unhealthy")
         (when-not (:ignore-smart options)
-          (System/exit (:smart-fail exit-codes)))))
+          (System/exit (:smart-fail exit-codes/codes)))))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Log the startup.
@@ -332,7 +239,7 @@
       (condp = (:exit diff-result)
         1 (do
             (log/error "snapraid diff failed")
-            (System/exit (:diff-fail exit-codes)))
+            (System/exit (:diff-fail exit-codes/codes)))
         2 (doseq [k diff-keys]
             (when-let [v (get diff-result k)]
               (log/info (str (str/capitalize (name k)) ": " v))))
@@ -348,7 +255,7 @@
                      [:added :removed :updated :moved :copied :restored]))
         (do
           (log/info "Saving permissions...")
-          (backup-permissions! {:drives (:data config)}))
+          (perms/backup! {:drives (:data config)} perms-archive-retention-count))
         (log/info "Skipping saving permissions"))
 
       ;;; ----------------------------------------------------------------------------
@@ -365,7 +272,7 @@
             (if (= (:exit sync-result) 1)
               (do
                 (log/error "snapraid sync failed")
-                (System/exit (:sync-fail exit-codes))))))
+                (System/exit (:sync-fail exit-codes/codes))))))
 
         (log/info "Skipping snapraid sync")))
 
@@ -380,7 +287,7 @@
           (if (= (:exit scrub-result) 1)
             (do
               (log/error "snapraid scrub failed")
-              (System/exit (:scrub-fail exit-codes))))))
+              (System/exit (:scrub-fail exit-codes/codes))))))
       (log/info "Skipping scrub"))
 
     ;;; ----------------------------------------------------------------------------
@@ -388,7 +295,7 @@
     ;;; ----------------------------------------------------------------------------
 
     (log/info "Done")
-    (System/exit (:success exit-codes))))
+    (System/exit (:success exit-codes/codes))))
 
 ;; Ensure -main is only called when this script is run directly,
 ;; not when it's required by another script.
