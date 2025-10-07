@@ -13,7 +13,7 @@
    - scrub is run to check data and parity for errors.
 
    USAGE:
-     ./snapraid_aio.bb [OPTIONS]
+     snapraid_aio.bb [OPTIONS]
 
    OPTIONS:
      -c, --config          Path to the SnapRAID configuration file
@@ -53,7 +53,7 @@
    ["-s" "--skip-scrub" "Don't run SnapRAID scrub"]
    ["-v" "--version" "Version"]])
 
-(def ^:const version "0.0.5")
+(def ^:const version "0.0.6")
 (def ^:const script-name "snapraid_aio.bb")
 (def ^:const perms-archive-retention-count 1)
 (def ^:const lock-file (str "/tmp/" script-name ".lock"))
