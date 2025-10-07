@@ -24,18 +24,16 @@
      -v, --version         Show the version
 
    AUTHOR:
-     Eric Turner
      jittery-name-ninja@duck.com"
 
   (:require [clojure.pprint :as pp]
             [clojure.string :as str]
-            [clojure.java.io :as io]
             [clojure.tools.cli :as cli]
             [babashka.fs :as fs]
             [babashka.process :refer [shell sh]]
-            [logging :as log])
-  (:import (java.io RandomAccessFile)
-           (java.time LocalDateTime ZoneId)
+            [logging :as log]
+            [lock :as lock])
+  (:import (java.time LocalDateTime ZoneId)
            (java.time.format DateTimeFormatter)))
 
 ;;; ----------------------------------------------------------------------------
@@ -131,28 +129,6 @@
     parsed-args))
 
 ;;; ----------------------------------------------------------------------------
-;;; Lock functions.
-;;; ----------------------------------------------------------------------------
-
-(defn obtain-lock!
-  "Try to obtain an exclusive lock on lock-file.
-   Returns true on success, nil on failure."
-  []
-  (try
-    (let [raf (RandomAccessFile. lock-file "rw")
-          chan (.getChannel raf)
-          lock (.tryLock chan)]
-      (if (nil? lock)
-        (do
-          (.close chan)
-          (.close raf)
-          nil)
-        (do
-          (reset! lock-state {:raf raf :chan chan :lock lock})
-          true)))
-    (catch Exception _ nil)))
-
-;;; ----------------------------------------------------------------------------
 ;;; SnapRAID configuration-parsing functions.
 ;;; ----------------------------------------------------------------------------
 
@@ -197,7 +173,7 @@
     (update acc :other (fnil conj []) {:key k :args args})))
 
 (defn parse-snapraid-config
-  "Parses a SnapRAID configuration file into a Clojure map."
+  "Parses SnapRAID configuration file contents s into a Clojure map."
   [s]
   (let [lines (str/split-lines s)]
     (->> lines
@@ -381,7 +357,6 @@
 
 (defn -main [& args]
 
-
   ;; Configure logging. Root logs to /var/log/, everyone else to /tmp/ .
   (let [log-file (if (= (uid) 0)
                    (str "/var/log/" script-name ".log")
@@ -412,17 +387,10 @@
     ;;; Prevent other instances of the script from running.
     ;;; ----------------------------------------------------------------------------
 
-    ;; Remove the lock when the script finishes
-    (.addShutdownHook (Runtime/getRuntime)
-                      (Thread. (fn []
-                                 (when-let [{:keys [raf chan lock]} @lock-state]
-                                   (try (.release lock) (catch Exception _))
-                                   (try (.close chan) (catch Exception _))
-                                   (try (.close raf) (catch Exception _))
-                                   (try (io/delete-file lock-file true) (catch Exception _))))))
+    (lock/add-release-lock-hook! lock-file lock-state)
 
     ;; Obtain the lock
-    (when-not (obtain-lock!)
+    (when-not (lock/obtain-lock! lock-file lock-state)
       (log/error "Another instance is already running. Exiting.")
       (System/exit (:lock-fail exit-codes)))
 
