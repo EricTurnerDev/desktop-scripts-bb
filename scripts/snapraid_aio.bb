@@ -29,11 +29,11 @@
   (:require [clojure.string :as str]
             [clojure.tools.cli :as cli]
             [babashka.fs :as fs]
-            [babashka.process :refer [shell sh]]
+            [babashka.process :refer [sh]]
             [snapraid]
             [snapraid-config :as srconf]
             [drive]
-            [exit-codes]
+            [exit-codes :as excd]
             [logging :as log]
             [lock]
             [permissions :as perms]))
@@ -86,24 +86,11 @@
     (when errors
       (binding [*out* *err*]
         (doseq [e errors] (log/error e))
-        (System/exit (:preflight-fail exit-codes/codes))))
+        (System/exit (:preflight-fail excd/codes))))
     parsed-args))
 
-(defn snapraid-running?
-  "Checks if SnapRAID is already running."
-  []
-  (let [res (shell {:out      :string
-                    :err      :string
-                    :continue true}
-                   "pgrep" "-f" "-l" "\\bsnapraid(\\s|$)")]
-    (zero? (:exit res))))
-
-;;; ----------------------------------------------------------------------------
-;;; Main processing.
-;;; ----------------------------------------------------------------------------
 
 (defn -main [& args]
-
   ;; Configure logging. Root logs to /var/log/, everyone else to /tmp/ .
   (let [log-file (if (= (uid) 0)
                    (str "/var/log/" script-name ".log")
@@ -117,7 +104,7 @@
 
     (when-not config
       (log/error "No readable snapraid.conf was found.")
-      (System/exit (:preflight-fail exit-codes/codes)))
+      (System/exit (:preflight-fail excd/codes)))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Handle --help or --version if they were used.
@@ -126,12 +113,12 @@
     ;; Show the help message
     (when (:help options)
       (println (:doc (meta (the-ns 'snapraid-aio))))
-      (System/exit (:success exit-codes/codes)))
+      (System/exit (:success excd/codes)))
 
     ;; Show the version
     (when (:version options)
       (println script-name "version" version)
-      (System/exit (:success exit-codes/codes)))
+      (System/exit (:success excd/codes)))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Prevent other instances of the script from running.
@@ -142,7 +129,7 @@
     ;; Obtain the lock
     (when-not (lock/obtain-lock! lock-file lock-state)
       (log/error "Another instance is already running. Exiting.")
-      (System/exit (:lock-fail exit-codes/codes)))
+      (System/exit (:lock-fail excd/codes)))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Run preflight checks.
@@ -155,53 +142,53 @@
     (let [id (uid)]
       (when-not (= 0 id)
         (log/error "Error: This script must be run as root (use sudo).")
-        (System/exit (:preflight-fail exit-codes/codes))))
+        (System/exit (:preflight-fail excd/codes))))
 
     ;; Check that the snapraid command exists
     (when-not (program-exists? "snapraid")
       (log/error "SnapRAID not found")
-      (System/exit (:snapraid-fail exit-codes/codes)))
+      (System/exit (:snapraid-fail excd/codes)))
 
     ;; Check that the mountpoint command exists
     (when-not (program-exists? "mountpoint")
       (log/error "mountpoint command was not found")
-      (System/exit (:preflight-fail exit-codes/codes)))
+      (System/exit (:preflight-fail excd/codes)))
 
     ;; Check that the findmnt command exists
     (when-not (program-exists? "findmnt")
       (log/error "findmnt command was not found")
-      (System/exit (:preflight-fail exit-codes/codes)))
+      (System/exit (:preflight-fail excd/codes)))
 
     ;; Check that the getfacl command exists
     (when-not (program-exists? "getfacl")
       (log/error "getfacl command was not found")
-      (System/exit (:preflight-fail exit-codes/codes)))
+      (System/exit (:preflight-fail excd/codes)))
 
     ;; Check that the zip command exists
     (when-not (program-exists? "zip")
       (log/error "zip command was not found")
-      (System/exit (:preflight-fail exit-codes/codes)))
+      (System/exit (:preflight-fail excd/codes)))
 
     ;; Check that all the data drives are mounted
     (let [data-drives (:data config)]
       (when-not (every? drive/mounted? (mapv :path data-drives))
         (log/error "Not all of the data drives are mounted")
-        (System/exit (:preflight-fail exit-codes/codes))))
+        (System/exit (:preflight-fail excd/codes))))
 
     ;; Check that all the parity drives are mounted
     (let [parity-files (:parity config)
           parity-drives (mapv fs/parent parity-files)]
       (when-not (every? drive/mounted? parity-drives)
         (log/error "Not all of the parity drives are mounted")
-        (System/exit (:preflight-fail exit-codes/codes))))
+        (System/exit (:preflight-fail excd/codes))))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Make sure the script isn't already being run.
     ;;; ----------------------------------------------------------------------------
 
-    (when (snapraid-running?)
+    (when (snapraid/running?)
       (log/error "Another snapraid process is running")
-      (System/exit (:preflight-fail exit-codes/codes)))
+      (System/exit (:preflight-fail excd/codes)))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Run the S.M.A.R.T. Disk Checks.
@@ -212,7 +199,7 @@
       (when-not (every? drive/smart-healthy? devices)
         (log/error "Some drives are unhealthy")
         (when-not (:ignore-smart options)
-          (System/exit (:smart-fail exit-codes/codes)))))
+          (System/exit (:smart-fail excd/codes)))))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Log the startup.
@@ -239,7 +226,7 @@
       (condp = (:exit diff-result)
         1 (do
             (log/error "snapraid diff failed")
-            (System/exit (:diff-fail exit-codes/codes)))
+            (System/exit (:diff-fail excd/codes)))
         2 (doseq [k diff-keys]
             (when-let [v (get diff-result k)]
               (log/info (str (str/capitalize (name k)) ": " v))))
@@ -272,7 +259,7 @@
             (if (= (:exit sync-result) 1)
               (do
                 (log/error "snapraid sync failed")
-                (System/exit (:sync-fail exit-codes/codes))))))
+                (System/exit (:sync-fail excd/codes))))))
 
         (log/info "Skipping snapraid sync")))
 
@@ -287,7 +274,7 @@
           (if (= (:exit scrub-result) 1)
             (do
               (log/error "snapraid scrub failed")
-              (System/exit (:scrub-fail exit-codes/codes))))))
+              (System/exit (:scrub-fail excd/codes))))))
       (log/info "Skipping scrub"))
 
     ;;; ----------------------------------------------------------------------------
@@ -295,7 +282,7 @@
     ;;; ----------------------------------------------------------------------------
 
     (log/info "Done")
-    (System/exit (:success exit-codes/codes))))
+    (System/exit (:success excd/codes))))
 
 ;; Ensure -main is only called when this script is run directly,
 ;; not when it's required by another script.

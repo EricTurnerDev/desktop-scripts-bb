@@ -11,6 +11,15 @@
                   [(keyword key) (parse-long num)]))
          (into {}))))
 
+(defn running?
+  "Checks if SnapRAID is already running."
+  []
+  (let [res (shell {:out      :string
+                    :err      :string
+                    :continue true}
+                   "pgrep" "-f" "-l" "\\bsnapraid(\\s|$)")]
+    (zero? (:exit res))))
+
 (defn diff
   "Runs snapraid diff using the SnapRAID configuration at conf, and returns the counts."
   [conf]
