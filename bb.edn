@@ -6,7 +6,7 @@
     (shell "rm -f out/snapraid_aio.bb")
 
     ;; Create the uberscript
-    (shell "bb uberscript ./out/snapraid_aio.bb ./src/snapraid_aio.bb")
+    (shell "bb uberscript ./out/snapraid_aio.bb ./scripts/snapraid_aio.bb")
 
     ;; prepend shebang
     (shell "sed -i '1i #!/usr/bin/env bb' out/snapraid_aio.bb")

@@ -65,11 +65,16 @@ snapraid_aio.bb --version
 - `procps` package (for `pgrep`)
 - `smartmontools` package (for `smartctl`)
 
+### Build the Uberscript
+
+    $ bb build
+
 ### System-wide (optional)
-Put `snapraid_aio.bb` somewhere in root's `$PATH`, e.g.:
+
+Put `out/snapraid_aio.bb` somewhere in root's `$PATH`, e.g.:
 
 ```bash
-sudo cp snapraid_aio.bb /usr/local/sbin/
+sudo cp ./out/snapraid_aio.bb /usr/local/sbin/
 sudo chmod +x /usr/local/sbin/snapraid_aio.bb
 ```
 
@@ -84,7 +89,7 @@ Override with `--config`:
 snapraid_aio.bb --config /path/to/snapraid.conf
 ```
 
-Your SnapRAID config should define:
+Your SnapRAID config must define at a minimum:
 - `data` or `disk` drives
 - `parity` files
 - `content` files
@@ -97,7 +102,7 @@ Your SnapRAID config should define:
 - Lockfile: `/tmp/snapraid_aio.bb.lock` (auto-released when the process exits).
 - If another instance is active, the script will exit safely.
 - If one or more data or parity drives aren't mounted, the script will exit safely.
-- If SMART tests show any disk errors, the script will exit safely.
+- If S.M.A.R.T. tests show any disk errors, the script will exit safely (unless `--skip-smart` is used).
 ---
 
 ## 🧩 Example Workflow
@@ -134,7 +139,8 @@ Your SnapRAID config should define:
 ## 🔧 Development
 
 ### Project Layout
-- `src/snapraid_aio.bb` — main Babashka script
+- `scripts/snapraid_aio.bb` — main Babashka script
+- `src/*.bb` — Supporting namespaces
 
 ### Testing
 
