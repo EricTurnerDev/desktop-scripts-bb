@@ -31,6 +31,7 @@
             [clojure.tools.cli :as cli]
             [babashka.fs :as fs]
             [babashka.process :refer [shell sh]]
+            [drive :as drive]
             [logging :as log]
             [lock :as lock])
   (:import (java.time LocalDateTime ZoneId)
@@ -93,29 +94,6 @@
   "Checks if a program exists."
   [prog]
   (some? (fs/which prog)))
-
-(defn mounted?
-  "Checks if a drive is mounted."
-  [path]
-  (zero? (:exit (shell {:out      :string
-                        :err      :string
-                        :continue true}                     ; Don't throw exception on exit != 0
-                       "mountpoint" "-q" path))))
-
-(defn mount-source
-  "Returns the device backing a mount point.
-   On failure or if not mounted, returns nil."
-  [mountpoint]
-  (let [{:keys [out exit]} (shell {:out      :string
-                                   :err      :string
-                                   :continue true}
-                                  "findmnt" "-no" "SOURCE" mountpoint)]
-    (when (zero? exit)
-      (let [src (str/trim out)]
-        (when-not (str/blank? src)
-          (try
-            (str (fs/real-path src))
-            (catch Exception _ src)))))))
 
 (defn parse-opts
   "Parses command line options."
@@ -199,21 +177,6 @@
                     :continue true}
                    "pgrep" "-f" "-l" "\\bsnapraid(\\s|$)")]
     (zero? (:exit res))))
-
-;;; ----------------------------------------------------------------------------
-;;; S.M.A.R.T. functions.
-;;; ----------------------------------------------------------------------------
-
-(defn smart-healthy?
-  "Returns true if smartctl reports overall health as PASSED, else false."
-  [device]
-  (let [{:keys [out exit]} (shell {:out      :string
-                                   :err      :string
-                                   :continue true}
-                                  "smartctl" "-H" device)]
-    (and (zero? exit)
-         (or (str/includes? out "PASSED")
-             (str/includes? out "OK")))))
 
 ;;; ----------------------------------------------------------------------------
 ;;; SnapRAID diff functions.
@@ -387,7 +350,7 @@
     ;;; Prevent other instances of the script from running.
     ;;; ----------------------------------------------------------------------------
 
-    (lock/add-release-lock-hook! lock-file lock-state)
+    (lock/add-release-hook! lock-file lock-state)
 
     ;; Obtain the lock
     (when-not (lock/obtain-lock! lock-file lock-state)
@@ -434,14 +397,14 @@
 
     ;; Check that all the data drives are mounted
     (let [data-drives (:data config)]
-      (when-not (every? mounted? (mapv :path data-drives))
+      (when-not (every? drive/mounted? (mapv :path data-drives))
         (log/error "Not all of the data drives are mounted")
         (System/exit (:preflight-fail exit-codes))))
 
     ;; Check that all the parity drives are mounted
     (let [parity-files (:parity config)
           parity-drives (mapv fs/parent parity-files)]
-      (when-not (every? mounted? parity-drives)
+      (when-not (every? drive/mounted? parity-drives)
         (log/error "Not all of the parity drives are mounted")
         (System/exit (:preflight-fail exit-codes))))
 
@@ -458,8 +421,8 @@
     ;;; ----------------------------------------------------------------------------
 
     (let [data-drives (mapv :path (:data config))
-          devices (mapv mount-source data-drives)]
-      (when-not (every? smart-healthy? devices)
+          devices (mapv drive/mount-source data-drives)]
+      (when-not (every? drive/smart-healthy? devices)
         (log/error "Some drives are unhealthy")
         (when-not (:ignore-smart options)
           (System/exit (:smart-fail exit-codes)))))

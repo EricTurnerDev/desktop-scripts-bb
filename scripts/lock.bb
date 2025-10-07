@@ -20,7 +20,7 @@
           true)))
     (catch Exception _ nil)))
 
-(defn add-release-lock-hook!
+(defn add-release-hook!
   "Adds a shutdown hook to release lock file lf managed by a lock state atom ls when the script ends."
   [lf ls]
   ;; Remove the lock when the script finishes
