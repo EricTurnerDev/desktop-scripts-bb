@@ -1,4 +1,4 @@
-(ns exit-codes)
+(ns snapraid.exit-codes)
 
 (def ^:const codes
   {:success          0

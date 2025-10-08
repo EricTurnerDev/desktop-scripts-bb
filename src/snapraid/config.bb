@@ -1,4 +1,4 @@
-(ns snapraid-config
+(ns snapraid.config
   (:require
     [clojure.string :as str]
     [babashka.fs :as fs]))

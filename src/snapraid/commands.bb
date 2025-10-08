@@ -1,4 +1,4 @@
-(ns snapraid
+(ns snapraid.commands
   (:require [clojure.string :as str]
             [babashka.process :refer [shell]]))
 

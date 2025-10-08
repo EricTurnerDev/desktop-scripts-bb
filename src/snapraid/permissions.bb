@@ -1,11 +1,11 @@
-(ns permissions
+(ns snapraid.permissions
   (:require [clojure.pprint :as pp]
             [clojure.string :as str]
             [babashka.fs :as fs]
             [babashka.process :refer [shell]]
-            [snapraid]
+            [snapraid.commands :as cmd]
             [drive]
-            [exit-codes]
+            [snapraid.exit-codes :as excd]
             [logging :as log]
             [lock])
   (:import (java.time LocalDateTime ZoneId)
@@ -63,7 +63,7 @@
               res (apply shell {:out :string :err :string :continue true} cmd)]
           (when-not (zero? (:exit res))
             (log/error (str "Unable to get ACLs on " path ": " (:err res)))
-            (System/exit (:permissions-fail exit-codes/codes))) ; TODO: I don't like that backup! is responsible for handling the failure. Caller of the function should.
+            (System/exit (:permissions-fail excd/codes))) ; TODO: I don't like that backup! is responsible for handling the failure. Caller of the function should.
           (spit (str out-file) (:out res)))))
 
     ;; 2) write a small manifest for convenience
@@ -80,7 +80,7 @@
         (let [res (apply shell {:out :string :err :string :continue true} "zip" "-j" (str archive) to-zip)]
           (when-not (zero? (:exit res))
             (log/error (str "Unable to create zip file of permissions: " (:err res)))
-            (System/exit (:permissions-fail exit-codes/codes)))))) ; TODO: I don't like that backup! is responsible for handling the failure. Caller of the function should.
+            (System/exit (:permissions-fail excd/codes)))))) ; TODO: I don't like that backup! is responsible for handling the failure. Caller of the function should.
 
     ;; 4) copy the single archive to each drive under /.snapraid-perms/
     (doseq [{:keys [path]} drives]

@@ -75,7 +75,6 @@ Put `out/snapraid_aio.bb` somewhere in root's `$PATH`, e.g.:
 
 ```bash
 sudo cp ./out/snapraid_aio.bb /usr/local/sbin/
-sudo chmod +x /usr/local/sbin/snapraid_aio.bb
 ```
 
 ---
@@ -139,8 +138,9 @@ Your SnapRAID config must define at a minimum:
 ## 🔧 Development
 
 ### Project Layout
+- `docs/*.md` — Documentation for each script.
 - `scripts/snapraid_aio.bb` — main Babashka script
-- `src/*.bb` — Supporting namespaces
+- `src/*` — Supporting namespaces
 
 ### Testing
 

@@ -30,13 +30,13 @@
             [clojure.tools.cli :as cli]
             [babashka.fs :as fs]
             [babashka.process :refer [sh]]
-            [snapraid]
-            [snapraid-config :as srconf]
             [drive]
-            [exit-codes :as excd]
             [logging :as log]
             [lock]
-            [permissions :as perms]))
+            [snapraid.commands :as cmd]
+            [snapraid.config :as srconf]
+            [snapraid.exit-codes :as excd]
+            [snapraid.permissions :as perms]))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Constants.
@@ -186,7 +186,7 @@
     ;;; Make sure the script isn't already being run.
     ;;; ----------------------------------------------------------------------------
 
-    (when (snapraid/running?)
+    (when (cmd/running?)
       (log/error "Another snapraid process is running")
       (System/exit (:preflight-fail excd/codes)))
 
@@ -222,7 +222,7 @@
 
     (log/info "Running snapraid diff...")
 
-    (let [diff-result (snapraid/diff config-path)]
+    (let [diff-result (cmd/diff config-path)]
       (condp = (:exit diff-result)
         1 (do
             (log/error "snapraid diff failed")
@@ -255,7 +255,7 @@
                      [:added :removed :updated :moved :copied :restored]))
         (do
           (log/info "Running snapraid sync...")
-          (let [sync-result (snapraid/sync! config-path)]
+          (let [sync-result (cmd/sync! config-path)]
             (if (= (:exit sync-result) 1)
               (do
                 (log/error "snapraid sync failed")
@@ -270,7 +270,7 @@
     (if-not (:skip-scrub options)
       (do
         (log/info "Running snapraid scrub...")
-        (let [scrub-result (snapraid/scrub config-path options)]
+        (let [scrub-result (cmd/scrub config-path options)]
           (if (= (:exit scrub-result) 1)
             (do
               (log/error "snapraid scrub failed")
