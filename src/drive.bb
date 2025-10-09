@@ -1,4 +1,5 @@
 (ns drive
+  "Provides functions for working with drives."
   (:require [clojure.string :as str]
             [babashka.fs :as fs]
             [babashka.process :refer [shell]]))

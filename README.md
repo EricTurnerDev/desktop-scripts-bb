@@ -7,7 +7,8 @@ You may find some of them useful.
 
 ## Scripts
 
-* snapraid_aio.bb — All-in-one SnapRAID script for managing a DAS (Direct Attached Storage).
+* imgur - Upload images to Imgur from the command line.
+* snapraid_aio — All-in-one SnapRAID script for managing a DAS (Direct Attached Storage).
 
 ---
 

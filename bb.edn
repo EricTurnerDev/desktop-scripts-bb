@@ -3,15 +3,18 @@
  {build
   (do
     (shell "mkdir -p out")
-    (shell "rm -f out/*")
+    (shell "rm -rf out/production out/imgur out/snapraid_aio")
 
     ;; Create the uberscript
-    (shell "bb uberscript ./out/snapraid_aio ./scripts/snapraid_aio.bb")
+    (shell "bb uberscript out/imgur scripts/imgur.bb")
+    (shell "bb uberscript out/snapraid_aio scripts/snapraid_aio.bb")
 
     ;; prepend shebang
+    (shell "sed -i '1i #!/usr/bin/env bb' out/imgur")
     (shell "sed -i '1i #!/usr/bin/env bb' out/snapraid_aio")
 
     ;; make it executable
+    (shell "chmod +x out/imgur")
     (shell "chmod +x out/snapraid_aio")
 
-    (println "Build ./out/snapraid_aio with shebang and exec permissions"))}}
+    (println "Build complete."))}}

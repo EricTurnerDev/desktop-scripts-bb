@@ -1,4 +1,5 @@
 (ns lock
+  "Provides functions for working with file-based locks."
   (:require [clojure.java.io :as io])
   (:import (java.io RandomAccessFile)))
 

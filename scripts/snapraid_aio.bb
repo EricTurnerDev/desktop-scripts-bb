@@ -13,7 +13,7 @@
    - scrub is run to check data and parity for errors.
 
    USAGE:
-     snapraid_aio.bb [OPTIONS]
+     snapraid_aio [OPTIONS]
 
    OPTIONS:
      -c, --config          Path to the SnapRAID configuration file
@@ -29,11 +29,13 @@
   (:require [clojure.string :as str]
             [clojure.tools.cli :as cli]
             [babashka.fs :as fs]
-            [babashka.process :refer [sh]]
+            [command :as cmd]
             [drive]
             [logging :as log]
             [lock]
-            [snapraid.commands :as cmd]
+            [script]
+            [user-utils]
+            [snapraid.commands :as srcmd]
             [snapraid.config :as srconf]
             [snapraid.exit-codes :as excd]
             [snapraid.permissions :as perms]))
@@ -52,10 +54,10 @@
     :parse-fn (fn [s] (try (Long/parseLong s) (catch Exception _ nil)))
     :validate [#(and (number? %) (<= 0 % 100)) "Must be an integer between 0 and 100"]]
    ["-s" "--skip-scrub" "Don't run SnapRAID scrub"]
-   ["-v" "--version" "Version"]])
+   ["-v" "--version" "Show the version"]])
 
 (def ^:const version "0.0.6")
-(def ^:const script-name "snapraid_aio.bb")
+(def ^:const script-name "snapraid_aio")
 (def ^:const perms-archive-retention-count 1)
 (def ^:const lock-file (str "/tmp/" script-name ".lock"))
 (def ^:const diff-keys [:equal :added :removed :updated :moved :copied :restored])
@@ -66,39 +68,27 @@
 ;;; General file and shell functions.
 ;;; ----------------------------------------------------------------------------
 
-(defn uid
-  "Gets the user id of the current process"
-  []
-  (try
-    (Integer/parseInt (str/trim (:out (sh "id" "-u"))))
-    (catch Exception _ -1)))
-
-(defn program-exists?
-  "Checks if a program exists."
-  [prog]
-  (some? (fs/which prog)))
-
 (defn parse-opts
   "Parses command line options."
   [args opts]
-  (let [parsed-args (cli/parse-opts args opts)
-        {:keys [errors]} parsed-args]
+  (let [parsed-opts (cli/parse-opts args opts)
+        {:keys [errors]} parsed-opts]
     (when errors
       (binding [*out* *err*]
         (doseq [e errors] (log/error e))
         (System/exit (:preflight-fail excd/codes))))
-    parsed-args))
+    parsed-opts))
 
 
 (defn -main [& args]
   ;; Configure logging. Root logs to /var/log/, everyone else to /tmp/ .
-  (let [log-file (if (= (uid) 0)
+  (let [log-file (if (= (user-utils/uid) 0)
                    (str "/var/log/" script-name ".log")
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))
 
-  (let [parsed-args (parse-opts args cli-options)
-        options (:options parsed-args)
+  (let [parsed-opts (parse-opts args cli-options)
+        options (:options parsed-opts)
         config-path (srconf/resolve-path (:config options))
         config (-> config-path slurp srconf/parse)]
 
@@ -139,33 +129,33 @@
     ;; TODO: Instead of forcing to run as root, check permissions on the resources we need to access, and error if
     ;; the current user doesn't have permissions to access those resources. That way the system admin can choose how to
     ;; run this script however they see fit.
-    (let [id (uid)]
+    (let [id (user-utils/uid)]
       (when-not (= 0 id)
         (log/error "Error: This script must be run as root (use sudo).")
         (System/exit (:preflight-fail excd/codes))))
 
     ;; Check that the snapraid command exists
-    (when-not (program-exists? "snapraid")
+    (when-not (cmd/exists? "snapraid")
       (log/error "SnapRAID not found")
       (System/exit (:snapraid-fail excd/codes)))
 
     ;; Check that the mountpoint command exists
-    (when-not (program-exists? "mountpoint")
+    (when-not (cmd/exists? "mountpoint")
       (log/error "mountpoint command was not found")
       (System/exit (:preflight-fail excd/codes)))
 
     ;; Check that the findmnt command exists
-    (when-not (program-exists? "findmnt")
+    (when-not (cmd/exists? "findmnt")
       (log/error "findmnt command was not found")
       (System/exit (:preflight-fail excd/codes)))
 
     ;; Check that the getfacl command exists
-    (when-not (program-exists? "getfacl")
+    (when-not (cmd/exists? "getfacl")
       (log/error "getfacl command was not found")
       (System/exit (:preflight-fail excd/codes)))
 
     ;; Check that the zip command exists
-    (when-not (program-exists? "zip")
+    (when-not (cmd/exists? "zip")
       (log/error "zip command was not found")
       (System/exit (:preflight-fail excd/codes)))
 
@@ -186,7 +176,7 @@
     ;;; Make sure the script isn't already being run.
     ;;; ----------------------------------------------------------------------------
 
-    (when (cmd/running?)
+    (when (cmd/running? "snapraid")
       (log/error "Another snapraid process is running")
       (System/exit (:preflight-fail excd/codes)))
 
@@ -222,7 +212,7 @@
 
     (log/info "Running snapraid diff...")
 
-    (let [diff-result (cmd/diff config-path)]
+    (let [diff-result (srcmd/diff config-path)]
       (condp = (:exit diff-result)
         1 (do
             (log/error "snapraid diff failed")
@@ -255,7 +245,7 @@
                      [:added :removed :updated :moved :copied :restored]))
         (do
           (log/info "Running snapraid sync...")
-          (let [sync-result (cmd/sync! config-path)]
+          (let [sync-result (srcmd/sync! config-path)]
             (if (= (:exit sync-result) 1)
               (do
                 (log/error "snapraid sync failed")
@@ -270,7 +260,7 @@
     (if-not (:skip-scrub options)
       (do
         (log/info "Running snapraid scrub...")
-        (let [scrub-result (cmd/scrub config-path options)]
+        (let [scrub-result (srcmd/scrub config-path options)]
           (if (= (:exit scrub-result) 1)
             (do
               (log/error "snapraid scrub failed")
@@ -284,7 +274,4 @@
     (log/info "Done")
     (System/exit (:success excd/codes))))
 
-;; Ensure -main is only called when this script is run directly,
-;; not when it's required by another script.
-(when (= *file* (System/getProperty "babashka.file"))
-  (apply -main *command-line-args*))
+(script/run -main)

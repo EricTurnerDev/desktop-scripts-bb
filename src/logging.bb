@@ -1,4 +1,5 @@
 (ns logging
+  "Provides functions for logging messages to stdout, stderr, and log files."
   (:import (java.time LocalDateTime ZoneId)
            (java.time.format DateTimeFormatter)))
 
