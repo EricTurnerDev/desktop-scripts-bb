@@ -3,18 +3,22 @@
  {build
   (do
     (shell "mkdir -p out")
-    (shell "rm -rf out/production out/imgur out/snapraid_aio")
+    (shell "rm -rf out/production out/imgur out/snapraid_aio out/postgresql_backup")
 
     ;; Create the uberscript
     (shell "bb uberscript out/imgur scripts/imgur.bb")
+    (shell "bb uberscript out/postgresql_backup scripts/postgresql_backup.bb")
     (shell "bb uberscript out/snapraid_aio scripts/snapraid_aio.bb")
+
 
     ;; prepend shebang
     (shell "sed -i '1i #!/usr/bin/env bb' out/imgur")
+    (shell "sed -i '1i #!/usr/bin/env bb' out/postgresql_backup")
     (shell "sed -i '1i #!/usr/bin/env bb' out/snapraid_aio")
 
     ;; make it executable
     (shell "chmod +x out/imgur")
+    (shell "chmod +x out/postgresql_backup")
     (shell "chmod +x out/snapraid_aio")
 
     (println "Build complete."))}}
