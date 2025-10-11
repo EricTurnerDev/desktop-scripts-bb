@@ -8,8 +8,8 @@ You may find some of them useful.
 ## Scripts
 
 * imgur - Upload images to Imgur from the command line.
-* postgresql_backup - Dump a postgresql database.
-* snapraid_aio — All-in-one SnapRAID script for managing a DAS (Direct Attached Storage).
+* postgresql-backup - Dump a postgresql database.
+* snapraid-aio — All-in-one SnapRAID script for managing a DAS (Direct Attached Storage).
 
 ---
 
