@@ -16,12 +16,14 @@
      snapraid_aio [OPTIONS]
 
    OPTIONS:
-     -c, --config          Path to the SnapRAID configuration file
-     -h, --help            Show the help message
-     -i, --ignore-smart    Continue even when S.M.A.R.T. tests indicate problems
-     -p, --scrub-percent   The percentage of blocks for SnapRAID to scrub
-     -s, --skip-scrub      Don't run SnapRAID scrub
-     -v, --version         Show the version
+     -c, --config CONFIG       Path to the SnapRAID configuration file. Defaults to /usr/local/etc/snapraid.conf
+                               followed by /etc/snapraid.conf.
+     -h, --help                Show the help message
+     -i, --ignore-smart        Continue even when S.M.A.R.T. tests indicate problems
+     -o, --older-than DAYS     Scrub blocks of the array older than DAYS. Defaults to 10.
+     -p, --scrub-percent PERC  The percentage of blocks for SnapRAID to scrub. Defaults to 10.
+     -s, --skip-scrub          Don't run SnapRAID scrub
+     -v, --version             Show the version
 
    AUTHOR:
      jittery-name-ninja@duck.com"
@@ -47,6 +49,9 @@
 (def ^:const cli-options
   [["-c" "--config FILE" "SnapRAID configuration file"]
    ["-h" "--help" "Show the help message"]
+   ["-o" "--older-than DAYS" "Scrub blocks of the array older than DAYS"
+    :parse-fn (fn [s] (try (Long/parseLong s) (catch Exception _ nil)))
+    :validate [#(and (number? %) (<= 0 %)) "Must be an integer 0 or greater"]]
    ["-i" "--ignore-smart" "Continue even when S.M.A.R.T. tests indicate problems"]
    ["-p"
     "--scrub-percent PERCENT"
@@ -56,8 +61,8 @@
    ["-s" "--skip-scrub" "Don't run SnapRAID scrub"]
    ["-v" "--version" "Show the version"]])
 
-(def ^:const version "0.0.6")
-(def ^:const script-name "snapraid_aio")
+(def ^:const version "0.0.7")
+(def ^:const script-name "snapraid-aio")
 (def ^:const perms-archive-retention-count 1)
 (def ^:const lock-file (str "/tmp/" script-name ".lock"))
 (def ^:const diff-keys [:equal :added :removed :updated :moved :copied :restored])
@@ -202,6 +207,8 @@
     (log/info (str "Lock file " lock-file))
     (log/info (str "Data drives " (mapv :path (:data config))))
     (log/info (str "Parity drives " (mapv #(str (fs/parent %)) (:parity config))))
+    (when-let [days-old (:older-than options)]
+      (log/info (str "Will scrub blocks older than " days-old " " (if (= 1 days-old) "day" "days") " old")))
     (when-let [pct (:scrub-percent options)]
       (log/info (str "Will scrub " pct "% of blocks")))
 

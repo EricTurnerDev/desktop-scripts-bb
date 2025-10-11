@@ -2,6 +2,9 @@
   (:require [clojure.string :as str]
             [babashka.process :refer [shell]]))
 
+(def ^:const default-scrub-percent 10)
+(def ^:const default-older-than 10)
+
 (defn- parse-diff-output
   "Parses the output of running snapraid diff into EDN."
   [out]
@@ -37,11 +40,15 @@
     result))
 
 (defn scrub
-  "Runs snapraid scrub using the SnapRAID configuration file at conf, and the :scrub-percent from opt."
+  "Runs snapraid scrub using the SnapRAID configuration file at conf, and the :scrub-percent and :older-than options from opt."
   [conf opt]
   (let [{:keys [out err exit]} (shell {:out      :string
                                        :err      :string
                                        :continue true}
-                                      "snapraid" "--conf" conf "--plan" (or (:scrub-percent opt) 10) "scrub")
+                                      "snapraid"
+                                      "--conf" conf
+                                      "--plan" (or (:scrub-percent opt) default-scrub-percent)
+                                      "--older-than" (or (:older-than opt) default-older-than)
+                                      "scrub")
         result {:out out :err err :exit exit}]
     result))
