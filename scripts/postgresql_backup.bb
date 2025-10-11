@@ -5,7 +5,7 @@
     Backs up a PostgreSQL database.
 
     USAGE:
-      postgresql_backup [OPTIONS]
+      postgresql-backup [OPTIONS]
 
     OPTIONS:
       -d, --database    The PostgreSQL database. REQUIRED.
@@ -59,7 +59,7 @@
    ["-v" "--version" "Show version."]])
 
 (def ^:const version "0.0.1")
-(def ^:const script-name "postgresql_backup")
+(def ^:const script-name "postgresql-backup")
 
 ;; TODO: lock-file name should include the database name in it (somehow) because it's okay for this script to be already running
 ;; if it's backing up a different database.

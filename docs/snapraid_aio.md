@@ -1,4 +1,4 @@
-# snapraid_aio
+# snapraid-aio
 
  **All-in-one SnapRAID management script.**  
 
@@ -31,7 +31,7 @@ A [Babashka](https://github.com/babashka/babashka)-powered tool that handles pre
 ## 🚀 Usage
 
 ```bash
-snapraid_aio [options]
+snapraid-aio [options]
 ```
 
 ### Options
@@ -48,9 +48,9 @@ snapraid_aio [options]
 Examples:
 
 ```bash
-snapraid_aio --config /etc/snapraid.conf --scrub-percent 20 --ignore-smart
-snapraid_aio --help
-snapraid_aio --version
+snapraid-aio --config /etc/snapraid.conf --scrub-percent 20 --ignore-smart
+snapraid-aio --help
+snapraid-aio --version
 ```
 
 ---
@@ -71,21 +71,21 @@ snapraid_aio --version
 
 ### System-wide (optional)
 
-Put `out/snapraid_aio` somewhere in root's `$PATH`, e.g.:
+Put `out/snapraid-aio` somewhere in root's `$PATH`, e.g.:
 
 ```bash
-sudo cp ./out/snapraid_aio /usr/local/sbin/
+sudo cp ./out/snapraid-aio /usr/local/sbin/
 ```
 
 ---
 
 ## ⚙️ Configuration
 
-By default, `snapraid_aio` looks for `/usr/local/etc/snapraid.conf`, then `/etc/snapraid.conf`.  
+By default, `snapraid-aio` looks for `/usr/local/etc/snapraid.conf`, then `/etc/snapraid.conf`.  
 Override with `--config`:
 
 ```bash
-snapraid_aio --config /path/to/snapraid.conf
+snapraid-aio --config /path/to/snapraid.conf
 ```
 
 Your SnapRAID config must define at a minimum:
@@ -98,7 +98,7 @@ Your SnapRAID config must define at a minimum:
 ## 🔒 Safety Notes
 
 - Must be run as **root** (or via `sudo`) for disk and S.M.A.R.T. checks.
-- Lockfile: `/tmp/snapraid_aio.lock` (auto-released when the process exits).
+- Lockfile: `/tmp/snapraid-aio.lock` (auto-released when the process exits).
 - If another instance is active, the script will exit safely.
 - If one or more data or parity drives aren't mounted, the script will exit safely.
 - If S.M.A.R.T. tests show any disk errors, the script will exit safely (unless `--skip-smart` is used).
@@ -108,7 +108,7 @@ Your SnapRAID config must define at a minimum:
 
 1. Run:
    ```bash
-   sudo /usr/local/sbin/snapraid_aio --config /etc/snapraid.conf
+   sudo /usr/local/sbin/snapraid-aio --config /etc/snapraid.conf
    ```
 2. Script will:
     - Check mounts and disk health
@@ -182,11 +182,11 @@ Fork, hack, and send a PR. 🚀
 ## 🖼️ Example Log Output
 
 ```
-2025-09-25 18:43:01 [INFO] Running snapraid_aio...
+2025-09-25 18:43:01 [INFO] Running snapraid-aio...
 2025-09-25 18:43:01 [INFO] Script version 0.0.1
 2025-09-25 18:43:01 [INFO] Using configuration from /etc/snapraid.conf
-2025-09-25 18:43:01 [INFO] Logging to /var/log/snapraid_aio.log
-2025-09-25 18:43:01 [INFO] Lock file /tmp/snapraid_aio.lock
+2025-09-25 18:43:01 [INFO] Logging to /var/log/snapraid-aio.log
+2025-09-25 18:43:01 [INFO] Lock file /tmp/snapraid-aio.lock
 2025-09-25 18:43:01 [INFO] Data drives ["/mnt/das1" "/mnt/das2" "/mnt/das3" "/mnt/das4" "/mnt/das5" "/mnt/das6"]
 2025-09-25 18:43:01 [INFO] Parity drives ["/mnt/das-parity"]
 2025-09-25 18:43:01 [INFO] Running snapraid diff...

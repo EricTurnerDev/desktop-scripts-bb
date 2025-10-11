@@ -1,4 +1,4 @@
-# postgresql_backup
+# postgresql-backup
 
  **Dump a PostgreSQL database, and prune previous backups.**  
 
@@ -18,7 +18,7 @@ A [Babashka](https://github.com/babashka/babashka)-powered tool that handles pre
 ## 🚀 Usage
 
 ```bash
-postgresql_backup [options]
+postgresql-backup [options]
 ```
 
 ### Options
@@ -37,7 +37,7 @@ postgresql_backup [options]
 Examples:
 
 ```bash
-postgresql_backup -d gnucash_db -o ~/backups -u gnucash_user -k 14
+postgresql-backup -d gnucash_db -o ~/backups -u gnucash_user -k 14
 ```
 
 ---
@@ -56,17 +56,17 @@ postgresql_backup -d gnucash_db -o ~/backups -u gnucash_user -k 14
 
 ### System-wide (optional)
 
-Put `out/postgresql_backup` somewhere on the `$PATH`, e.g.:
+Put `out/postgresql-backup` somewhere on the `$PATH`, e.g.:
 
 ```bash
-sudo cp ./out/postgresql_backup /usr/local/sbin/
+sudo cp ./out/postgresql-backup /usr/local/sbin/
 ```
 
 ---
 
 ## 🔒 Safety Notes
 
-- Lockfile: `/tmp/postgresql_backup.lock` (auto-released when the process exits).
+- Lockfile: `/tmp/postgresql-backup.lock` (auto-released when the process exits).
 - If another instance is active, the script will exit safely.
 
 ---
