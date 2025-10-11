@@ -32,11 +32,11 @@
             [clojure.string :as str]
             [command :as cmd]
             [logging :as log]
+            [net]
             [script]
             [user-utils]
             [imgur.exit-codes :as excd])
-  (:import (java.net URL)
-           (java.nio.file Files)
+  (:import (java.nio.file Files)
            (java.util UUID)))
 
 (def ^:const cli-options
@@ -47,6 +47,12 @@
 (def ^:const version "0.0.1")
 (def ^:const script-name "imgur")
 
+(defn- exit-success []
+  (System/exit (:success excd/codes)))
+
+(defn- exit-fail []
+  (System/exit (:fail excd/codes)))
+
 (defn- parse-opts
   "Parses command line options."
   [args opts]
@@ -55,7 +61,7 @@
     (when errors
       (binding [*out* *err*]
         (doseq [e errors] (log/error e))
-        (System/exit (:fail excd/codes))))
+        (exit-fail)))
     parsed-args))
 
 (defn- image?
@@ -74,32 +80,6 @@
   "Checks if file f is an image that can be read. Returns true or false."
   [f]
   (and (fs/exists? f) (fs/readable? f) (image? f)))
-
-(defn- url?
-  "Checks if string s is a URL. Returns true or false."
-  [s]
-  (try
-    (do
-      ;; Attempt to create a java.net.URL object from the string.
-      ;; The object is created successfully for valid URLs.
-      (URL. s)
-      true)
-    (catch Exception _
-      ;; If an exception is caught, the string is not a valid URL.
-      false)))
-
-(defn- url-valid?
-  "Checks if URL u can be reached."
-  [u]
-  (if (empty? u)
-    false
-    ;; Read the first byte from the URL
-    (let [{:keys [out err exit]} (shell {:out      :string
-                                         :err      :string
-                                         :continue true}
-                                        "curl" "--insecure" "--output" "/dev/null" "--silent" "--fail" "-r" "0-0" u)
-          result {:exit exit :out out :err err}]
-      (= (:exit result) 0))))
 
 (defn- extension-from-content-type
   "Converts content type to file extension."
@@ -184,12 +164,12 @@
     ;; Show the help message.
     (when (:help options)
       (println (:doc (meta (the-ns 'imgur))))
-      (System/exit (:success excd/codes)))
+      (exit-success))
 
     ;; Show the version.
     (when (:version options)
       (println script-name "version" version)
-      (System/exit (:success excd/codes)))
+      (exit-success))
 
     ;; Image option can be provided by the --image option, or from stdin.
     (let [image-opt (or (:image options)
@@ -202,32 +182,32 @@
       ;; curl command exists.
       (when-not (cmd/exists? "curl")
         (log/error "curl not found.")
-        (System/exit (:fail excd/codes)))
+        (exit-fail))
 
       ;; ImageMagick identify command exists.
       (when-not (cmd/exists? "identify")
         (log/error "ImageMagick identify not found.")
-        (System/exit (:fail excd/codes)))
+        (exit-fail))
 
       ;; xargs command exists.
       (when-not (cmd/exists? "xargs")
         (log/error "xargs not found.")
-        (System/exit (:fail excd/codes)))
+        (exit-fail))
 
-      ;; curl command exists.
+      ;; jq command exists.
       (when-not (cmd/exists? "jq")
         (log/error "jq not found.")
-        (System/exit (:fail excd/codes)))
+        (exit-fail))
 
       ;; Image file path or URL was provided.
       (when-not image-opt
         (log/error "Image is required.")
-        (System/exit (:fail excd/codes)))
+        (exit-fail))
 
       ;; url can be read.
-      (when (and (url? image-opt) (not (url-valid? image-opt)))
+      (when (and (net/url? image-opt) (not (net/url-valid? image-opt)))
         (log/error (str image-opt " cannot be read."))
-        (System/exit (:fail excd/codes)))
+        (exit-fail))
 
       ;;; ----------------------------------------------------------------------------
       ;;; Upload the image to Imgur
@@ -238,15 +218,15 @@
 
         (when-not (image-valid? image)
           (log/error (str image-opt " is not a valid image."))
-          (System/exit (:fail excd/codes)))
+          (exit-fail))
 
         (let [imgur-url (upload-image! image)]
           (println imgur-url))
 
         ;; We don't want downloaded images in /tmp to consume disk space.
-        (when (url? image-opt)
+        (when (net/url? image-opt)
           (fs/delete-if-exists downloaded-file))
 
-        (System/exit (:success excd/codes))))))
+        (exit-success)))))
 
 (script/run -main)

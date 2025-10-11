@@ -13,7 +13,7 @@
    - scrub is run to check data and parity for errors.
 
    USAGE:
-     snapraid_aio [OPTIONS]
+     snapraid-aio [OPTIONS]
 
    OPTIONS:
      -c, --config CONFIG       Path to the SnapRAID configuration file. Defaults to /usr/local/etc/snapraid.conf

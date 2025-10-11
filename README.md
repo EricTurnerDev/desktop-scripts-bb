@@ -10,6 +10,7 @@ You may find some of them useful.
 * imgur - Upload images to Imgur from the command line.
 * postgresql-backup - Dump a postgresql database.
 * snapraid-aio — All-in-one SnapRAID script for managing a DAS (Direct Attached Storage).
+* youtube-download — Download YouTube videos by channel or video URL.
 
 ---
 

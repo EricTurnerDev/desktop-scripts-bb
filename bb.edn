@@ -3,7 +3,7 @@
  {build
   (do
     (shell "mkdir -p out")
-    (shell "rm -rf out/imgur out/snapraid_aio out/snapraid-aio out/postgresql-backup")
+    (shell "rm -rf out/imgur out/snapraid_aio out/snapraid-aio out/postgresql-backup out/youtube-download")
 
     ;; REPL in the Intellij IDE seems to create this directory.
     (shell "rm -rf out/production")
@@ -12,16 +12,18 @@
     (shell "bb uberscript out/imgur scripts/imgur.bb")
     (shell "bb uberscript out/postgresql-backup scripts/postgresql_backup.bb")
     (shell "bb uberscript out/snapraid-aio scripts/snapraid_aio.bb")
-
+    (shell "bb uberscript out/youtube-download scripts/youtube_download.bb")
 
     ;; prepend shebang
     (shell "sed -i '1i #!/usr/bin/env bb' out/imgur")
     (shell "sed -i '1i #!/usr/bin/env bb' out/postgresql-backup")
     (shell "sed -i '1i #!/usr/bin/env bb' out/snapraid-aio")
+    (shell "sed -i '1i #!/usr/bin/env bb' out/youtube-download")
 
     ;; make it executable
     (shell "chmod +x out/imgur")
     (shell "chmod +x out/postgresql-backup")
     (shell "chmod +x out/snapraid-aio")
+    (shell "chmod +x out/youtube-download")
 
     (println "Build complete."))}}
