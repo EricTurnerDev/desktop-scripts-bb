@@ -23,7 +23,9 @@ somewhere on your `$PATH`, and you'll be able to run them like any other shell s
 
 ---
 
-## Project Structure
+## Developing
+
+### Project Structure
 
 - `docs/` contains Markdown documents for each script.
 - `out/` contains the built scripts that you install.
@@ -31,3 +33,22 @@ somewhere on your `$PATH`, and you'll be able to run them like any other shell s
 - `src/` contains namespaces used by the Babashka scripts. Think of these like libraries.
 - `.gitignore` defines items that should not be versioned in the git repository.
 - `bb.edn` contains project configuration, including classpath definitions, the build task, etc. 
+
+### IntelliJ IDEA + Cursive setup for `.bb` scripts
+
+To get IntelliJ IDEA / Cursive to treat Babashka scripts correctly:
+
+#### 1. Enable syntax highlighting for `.bb` files
+- Go to **File → Settings → Editor → File Types**
+- Select **Clojure**
+- Add `*.bb` under **Registered Patterns**
+- Click **Apply**
+
+This ensures new `.bb` files open with Clojure syntax highlighting instead of plain text.
+
+#### 2. Mark `.bb` files as Babashka scripts (needed for resolution)
+- In the **Project** tool window, type `file:*.bb` in the search bar
+- Select all `.bb` files
+- Right-click → **Mark as Babashka script**
+
+Cursive will now resolve symbols against the Babashka runtime.  
