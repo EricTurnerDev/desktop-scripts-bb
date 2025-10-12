@@ -29,8 +29,8 @@
      jittery-name-ninja@duck.com"
 
   (:require [clojure.string :as str]
-            [clojure.tools.cli :as cli]
             [babashka.fs :as fs]
+            [cli :as dscli]
             [command :as cmd]
             [drive]
             [logging :as log]
@@ -73,16 +73,11 @@
 ;;; General file and shell functions.
 ;;; ----------------------------------------------------------------------------
 
-(defn parse-opts
-  "Parses command line options."
-  [args opts]
-  (let [parsed-opts (cli/parse-opts args opts)
-        {:keys [errors]} parsed-opts]
-    (when errors
-      (binding [*out* *err*]
-        (doseq [e errors] (log/error e))
-        (System/exit (:preflight-fail excd/codes))))
-    parsed-opts))
+(defn- handle-cli-errors [errors]
+  "Handles errors from parsing command-line options."
+  (binding [*out* *err*]
+    (doseq [e errors] (log/error e))
+    (System/exit (:preflight-fail excd/codes))))
 
 
 (defn -main [& args]
@@ -92,7 +87,7 @@
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))
 
-  (let [parsed-opts (parse-opts args cli-options)
+  (let [parsed-opts (dscli/parse-opts args cli-options handle-cli-errors)
         options (:options parsed-opts)
         config-path (srconf/resolve-path (:config options))
         config (-> config-path slurp srconf/parse)]

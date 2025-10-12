@@ -36,19 +36,19 @@
    ["-u", "--url URL" "URL of the YouTube video or channel"]
    ["-v" "--version" "Show the version"]])
 
-(defn exit-success [] (System/exit (:success exit-codes)))
+(defn- exit-success [] (System/exit (:success exit-codes)))
 
-(defn exit-fail [] (System/exit (:fail exit-codes)))
+(defn- exit-fail [] (System/exit (:fail exit-codes)))
 
-(defn- parse-opts-error [errors]
+(defn- handle-cli-errors [errors]
   "Handles errors from parsing command-line options."
   (binding [*out* *err*]
     (doseq [e errors] (log/error e))
     (exit-fail)))
 
-;; TODO: Need an option to ignore the download archive.
+;; TODO: Need an option to ignore the download archive or override the configured location of the archive.
 ;; TODO: if the video is already listed in the archive preventing download, we need to tell the user that.
-(defn- download [{:keys [url directory]}]
+(defn download [{:keys [url directory]}]
   (shell {:out      :string
           :err      :string
           :continue true}
@@ -65,7 +65,7 @@
   ;; --------------------------------------------------------------------------
   ;; Process command line arguments
   ;; --------------------------------------------------------------------------
-  (let [parsed-opts (dscli/parse-opts args cli-options parse-opts-error)
+  (let [parsed-opts (dscli/parse-opts args cli-options handle-cli-errors)
         options (:options parsed-opts)]
 
     ;; ------------------------------------------------------------------------
@@ -115,8 +115,6 @@
     ;; ------------------------------------------------------------------------
     ;; Download
     ;; ------------------------------------------------------------------------
-
-    (println (or (:directory options) default-directory))
 
     (let [dir (or (:directory options) default-directory)
           url (:url options)

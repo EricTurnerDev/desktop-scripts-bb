@@ -25,10 +25,10 @@
 
   (:require [cheshire.core :as json]
             [clojure.java.io :as io]
-            [clojure.tools.cli :as cli]
             [babashka.fs :as fs]
             [babashka.http-client :as http]
             [babashka.process :refer [shell]]
+            [cli :as dscli]
             [clojure.string :as str]
             [command :as cmd]
             [logging :as log]
@@ -52,17 +52,6 @@
 
 (defn- exit-fail []
   (System/exit (:fail excd/codes)))
-
-(defn- parse-opts
-  "Parses command line options."
-  [args opts]
-  (let [parsed-args (cli/parse-opts args opts)
-        {:keys [errors]} parsed-args]
-    (when errors
-      (binding [*out* *err*]
-        (doseq [e errors] (log/error e))
-        (exit-fail)))
-    parsed-args))
 
 (defn- image?
   "Determines if file f is an image. Returns true or false."
@@ -95,7 +84,13 @@
     ;; fallback
     ".img"))
 
-(defn- download-image!
+(defn- handle-cli-errors [errors]
+  "Handles errors from parsing command-line options."
+  (binding [*out* *err*]
+    (doseq [e errors] (log/error e))
+    (exit-fail)))
+
+(defn download-image!
   "Download an image from url to /tmp. Returns the filesystem path to the image, or nil if it could not be downloaded."
   [url]
   (try (let [resp (http/get url {:as               :bytes
@@ -118,7 +113,7 @@
          ;; Couldn't download it, so return nil.
          nil)))
 
-(defn- upload-image!
+(defn upload-image!
   "Upload an image file f from the filesystem to Imgur. Returns the Imgur URL of the image, or nil if the image could not be uploaded."
   [^String f]
   (try
@@ -154,7 +149,7 @@
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))
 
-  (let [parsed-opts (parse-opts args cli-options)
+  (let [parsed-opts (dscli/parse-opts args cli-options handle-cli-errors)
         options (:options parsed-opts)]
 
     ;;; ----------------------------------------------------------------------------

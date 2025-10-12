@@ -27,9 +27,9 @@
       jittery-name-ninja@duck.com
   "
 
-  (:require [clojure.tools.cli :as cli]
-            [babashka.fs :as fs]
+  (:require [babashka.fs :as fs]
             [babashka.process :as proc]
+            [cli :as dscli]
             [command :as cmd]
             [logging :as log]
             [lock]
@@ -75,23 +75,19 @@
 ;;; Supporting functions
 ;;; ---------------------------------------------------------------------------
 
-(defn exit-fail []
+(defn- exit-fail []
   (System/exit (:fail exit-codes)))
 
-(defn exit-success []
+(defn- exit-success []
   (System/exit (:success exit-codes)))
 
-(defn parse-opts
-  "Parses command line options."
-  [args opts]
-  (let [parsed-opts (cli/parse-opts args opts)
-        {:keys [errors]} parsed-opts]
-    (when errors
-        (doseq [e errors] (log/error e))
-        (exit-fail))
-    parsed-opts))
+(defn- handle-cli-errors [errors]
+  "Handles errors from parsing command-line options."
+  (binding [*out* *err*]
+    (doseq [e errors] (log/error e))
+    (exit-fail)))
 
-(defn now-formatted
+(defn- now-formatted
   "Gets the current date/time, formatted."
   [fmt]
   (.format (LocalDateTime/now (ZoneId/systemDefault))
@@ -151,7 +147,7 @@
     (log/configure! {:file log-file}))
 
 
-  (let [parsed-opts (parse-opts args cli-options)
+  (let [parsed-opts (dscli/parse-opts args cli-options handle-cli-errors)
         options (:options parsed-opts)]
 
     ;;; ----------------------------------------------------------------------------
@@ -160,7 +156,7 @@
 
     ;; Show the help message
     (when (:help options)
-      (println (:doc (meta (the-ns 'snapraid-aio))))
+      (println (:doc (meta (the-ns 'postgresql-backup))))
       (exit-success))
 
     ;; Show the version
