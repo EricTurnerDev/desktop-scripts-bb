@@ -32,3 +32,11 @@
   (let [ts (now-ts)]
     (.println System/err msg)
     (try-spit @log-file (str ts " [ERROR] " msg "\n"))))
+
+(defn ns-doc
+  "Gets the doc string for a namespace n."
+  [n]
+  (-> n
+      (the-ns)
+      (meta)
+      (:doc)))

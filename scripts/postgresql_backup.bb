@@ -156,7 +156,7 @@
 
     ;; Show the help message
     (when (:help options)
-      (println (:doc (meta (the-ns 'postgresql-backup))))
+      (println (log/ns-doc 'postgresql-backup))
       (exit-success))
 
     ;; Show the version
@@ -228,4 +228,4 @@
     (log/info "Done")
     (exit-success)))
 
-(script/run -main)
+(script/run -main *command-line-args*)

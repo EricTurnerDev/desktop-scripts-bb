@@ -158,7 +158,7 @@
 
     ;; Show the help message.
     (when (:help options)
-      (println (:doc (meta (the-ns 'imgur))))
+      (println (log/ns-doc 'imgur))
       (exit-success))
 
     ;; Show the version.
@@ -224,4 +224,4 @@
 
         (exit-success)))))
 
-(script/run -main)
+(script/run -main *command-line-args*)

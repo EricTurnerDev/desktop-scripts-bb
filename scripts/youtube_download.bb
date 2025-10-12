@@ -74,7 +74,7 @@
 
     ;; Show the help message
     (when (:help options)
-      (println (:doc (meta (the-ns 'youtube-download))))
+      (println (log/ns-doc 'youtube-download))
       (exit-success))
 
     ; Show the version
@@ -125,4 +125,4 @@
     ;; TODO: log/info the directory the video files were downloaded into
     (exit-success)))
 
-(script/run -main)
+(script/run -main *command-line-args*)

@@ -102,7 +102,7 @@
 
     ;; Show the help message
     (when (:help options)
-      (println (:doc (meta (the-ns 'snapraid-aio))))
+      (println (log/ns-doc 'snapraid-aio))
       (System/exit (:success excd/codes)))
 
     ;; Show the version
@@ -276,4 +276,4 @@
     (log/info "Done")
     (System/exit (:success excd/codes))))
 
-(script/run -main)
+(script/run -main *command-line-args*)
