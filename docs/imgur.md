@@ -2,7 +2,7 @@
 
 **Upload images to Imgur**
 
-A [Babashka](https://github.com/babashka/babashka)-powered tool that uploads images from either the filesystem or a URL to Imgure.
+A [Babashka](https://github.com/babashka/babashka)-powered tool that uploads images from either the filesystem or a URL to Imgur.
 
 ---
 
@@ -78,7 +78,7 @@ sudo cp ./out/imgur ~/bin/
 
 ### Project Layout
 - `docs/*.md` — Documentation for each script.
-- `out/` — The built script that you install.
+- `out/imgur` — The script that you install.
 - `scripts/imgur.bb` — main Babashka script.
 - `src/*` — Supporting namespaces.
 

@@ -12,6 +12,8 @@ You may find some of them useful.
 * snapraid-aio — All-in-one SnapRAID script for managing a DAS (Direct Attached Storage).
 * youtube-download — Download YouTube videos by channel or video URL.
 
+Every script can be run with the `--help` or `-h` option to learn how to use it.
+
 ---
 
 ## Building
