@@ -1,29 +1,34 @@
 {:paths ["src" "scripts"]
+ :pods  {org.babashka/postgresql {:version "0.1.4"}}
  :tasks
  {build
   (do
     (shell "mkdir -p out")
-    (shell "rm -rf out/imgur out/snapraid_aio out/snapraid-aio out/postgresql-backup out/youtube-download")
+    (shell "rm -rf out/imgur out/paprika-to-recipesage out/postgresql-backup out/snapraid-aio out/youtube-download")
 
     ;; REPL in the Intellij IDE seems to create this directory.
     (shell "rm -rf out/production")
 
     ;; Create the uberscript
     (shell "bb uberscript out/imgur scripts/imgur.bb")
+    (shell "bb uberscript out/paprika-to-recipesage scripts/paprika_to_recipesage.bb")
     (shell "bb uberscript out/postgresql-backup scripts/postgresql_backup.bb")
     (shell "bb uberscript out/snapraid-aio scripts/snapraid_aio.bb")
     (shell "bb uberscript out/youtube-download scripts/youtube_download.bb")
 
     ;; prepend shebang
     (shell "sed -i '1i #!/usr/bin/env bb' out/imgur")
+    (shell "sed -i '1i #!/usr/bin/env bb' out/paprika-to-recipesage")
     (shell "sed -i '1i #!/usr/bin/env bb' out/postgresql-backup")
     (shell "sed -i '1i #!/usr/bin/env bb' out/snapraid-aio")
     (shell "sed -i '1i #!/usr/bin/env bb' out/youtube-download")
 
     ;; make it executable
     (shell "chmod +x out/imgur")
+    (shell "chmod +x out/paprika-to-recipesage")
     (shell "chmod +x out/postgresql-backup")
     (shell "chmod +x out/snapraid-aio")
     (shell "chmod +x out/youtube-download")
 
-    (println "Build complete."))}}
+    (println "Build complete."))}
+ }

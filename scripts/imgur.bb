@@ -84,12 +84,6 @@
     ;; fallback
     ".img"))
 
-(defn- handle-cli-errors [errors]
-  "Handles errors from parsing command-line options."
-  (binding [*out* *err*]
-    (doseq [e errors] (log/error e))
-    (exit-fail)))
-
 (defn download-image!
   "Download an image from url to /tmp. Returns the filesystem path to the image, or nil if it could not be downloaded."
   [url]
@@ -149,7 +143,7 @@
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))
 
-  (let [parsed-opts (dscli/parse-opts args cli-options handle-cli-errors)
+  (let [parsed-opts (dscli/parse-opts args cli-options #(dscli/handle-cli-errors % exit-fail))
         options (:options parsed-opts)]
 
     ;;; ----------------------------------------------------------------------------

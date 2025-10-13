@@ -81,12 +81,6 @@
 (defn- exit-success []
   (System/exit (:success exit-codes)))
 
-(defn- handle-cli-errors [errors]
-  "Handles errors from parsing command-line options."
-  (binding [*out* *err*]
-    (doseq [e errors] (log/error e))
-    (exit-fail)))
-
 (defn- now-formatted
   "Gets the current date/time, formatted."
   [fmt]
@@ -147,7 +141,7 @@
     (log/configure! {:file log-file}))
 
 
-  (let [parsed-opts (dscli/parse-opts args cli-options handle-cli-errors)
+  (let [parsed-opts (dscli/parse-opts args cli-options #(dscli/handle-cli-errors % exit-fail))
         options (:options parsed-opts)]
 
     ;;; ----------------------------------------------------------------------------

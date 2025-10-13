@@ -40,12 +40,6 @@
 
 (defn- exit-fail [] (System/exit (:fail exit-codes)))
 
-(defn- handle-cli-errors [errors]
-  "Handles errors from parsing command-line options."
-  (binding [*out* *err*]
-    (doseq [e errors] (log/error e))
-    (exit-fail)))
-
 ;; TODO: Need an option to ignore the download archive or override the configured location of the archive.
 ;; TODO: if the video is already listed in the archive preventing download, we need to tell the user that.
 (defn download [{:keys [url directory]}]
@@ -65,7 +59,7 @@
   ;; --------------------------------------------------------------------------
   ;; Process command line arguments
   ;; --------------------------------------------------------------------------
-  (let [parsed-opts (dscli/parse-opts args cli-options handle-cli-errors)
+  (let [parsed-opts (dscli/parse-opts args cli-options #(dscli/handle-cli-errors % exit-fail))
         options (:options parsed-opts)]
 
     ;; ------------------------------------------------------------------------
