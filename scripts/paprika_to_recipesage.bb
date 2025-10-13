@@ -88,10 +88,7 @@
   (str/replace s #"/$" ""))
 
 (defn login!
-  "Logs in to RecipeSage like the browser does in your HAR:
-   POST {base-url}/api/users/login?false=false
-   Body: {\"email\": ..., \"password\": ...}
-   Returns the session token string or throws ex-info on failure."
+  "Logs in to RecipeSage like the browser does. Returns the session token string or throws ex-info on failure."
   [base-url email password]
   (let [url (str (strip-trailing-slash base-url) "/api/users/login?false=false")
         resp (http/post url
