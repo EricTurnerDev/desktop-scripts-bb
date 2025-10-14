@@ -162,8 +162,6 @@
     ;;; Make sure the script isn't already being run
     ;;; ---------------------------------------------------------------------------
 
-    (lock/add-release-hook! lock-file lock-state)
-
     (when-not (lock/obtain-lock! lock-file lock-state)
       (log/error "Another instance is already running. Exiting.")
       (exit-fail))

@@ -131,9 +131,6 @@
     ;;; Prevent other instances of the script from running.
     ;;; ----------------------------------------------------------------------------
 
-    (lock/add-release-hook! lock-file lock-state)
-
-    ;; Obtain the lock
     (when-not (lock/obtain-lock! lock-file lock-state)
       (log/error "Another instance is already running. Exiting.")
       (exit-lock-fail))

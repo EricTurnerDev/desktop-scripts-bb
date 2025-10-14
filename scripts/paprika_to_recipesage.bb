@@ -167,8 +167,6 @@
     ;; Prevent multiple instances of this script running against the same RecipeSasage database.
     ;; -----------------------------------------------------------------------------------------------------------------
 
-    (lock/add-release-hook! lock-file lock-state)
-
     (when-not (lock/obtain-lock! lock-file lock-state)
       (log/error "Another instance is already running.")
       (exit-fail))
