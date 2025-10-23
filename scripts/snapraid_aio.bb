@@ -22,6 +22,7 @@
      -i, --ignore-smart        Continue even when S.M.A.R.T. tests indicate problems
      -o, --older-than DAYS     Scrub blocks of the array older than DAYS. Defaults to 10.
      -p, --scrub-percent PERC  The percentage of blocks for SnapRAID to scrub. Defaults to 10.
+     -d, --skip-diff           Don't run SnapRAID diff (forces sync)
      -s, --skip-scrub          Don't run SnapRAID scrub
      -v, --version             Show the version
 
@@ -58,10 +59,11 @@
     "Percentage of blocks for SnapRAID to scrub (0-100)"
     :parse-fn (fn [s] (try (Long/parseLong s) (catch Exception _ nil)))
     :validate [#(and (number? %) (<= 0 % 100)) "Must be an integer between 0 and 100"]]
+   ["-d" "--skip-diff" "Don't run SnapRAID diff"]
    ["-s" "--skip-scrub" "Don't run SnapRAID scrub"]
    ["-v" "--version" "Show the version"]])
 
-(def ^:const version "0.0.7")
+(def ^:const version "0.0.8")
 (def ^:const script-name "snapraid-aio")
 (def ^:const perms-archive-retention-count 1)
 (def ^:const lock-file (str "/tmp/" script-name ".lock"))
@@ -96,6 +98,48 @@
 
 (defn- exit-snapraid-fail []
   (System/exit (:snapraid-fail excd/codes)))
+
+(defn- save-permissions [config]
+  (log/info "Saving permissions...")
+  (perms/backup! {:drives (:data config)} perms-archive-retention-count))
+
+(defn- changed?
+  "Determines if the result from snapraid diff indicates anything has changed."
+  [diff-result]
+  (and (= (:exit diff-result) 2)
+       (some #(pos? (long (or (% diff-result) 0)))
+             [:added :removed :updated :moved :copied :restored])))
+
+(defn- run-diff
+  "Runs snapraid diff, logs and returns the result."
+  [config-path]
+  (log/info "Running snapraid diff...")
+  (let [diff-result (srcmd/diff config-path)]
+    (condp = (:exit diff-result)
+      1 (do
+          (log/error "snapraid diff failed")
+          (exit-diff-fail))
+      2 (doseq [k diff-keys]
+          (when-let [v (get diff-result k)]
+            (log/info (str (str/capitalize (name k)) ": " v))))
+      (log/info "No differences detected"))
+    diff-result))
+
+(defn- run-sync [config-path]
+  (log/info "Running snapraid sync...")
+  (let [sync-result (srcmd/sync! config-path)]
+    (if (= (:exit sync-result) 1)
+      (do
+        (log/error "snapraid sync failed")
+        (exit-sync-fail)))))
+
+(defn- run-scrub [config-path options]
+  (log/info "Running snapraid scrub...")
+  (let [scrub-result (srcmd/scrub config-path options)]
+    (if (= (:exit scrub-result) 1)
+      (do
+        (log/error "snapraid scrub failed")
+        (exit-scrub-fail)))))
 
 (defn -main [& args]
   ;; Configure logging. Root logs to /var/log/, everyone else to /tmp/ .
@@ -226,47 +270,27 @@
     ;;; needs to be run.
     ;;; ----------------------------------------------------------------------------
 
-    (log/info "Running snapraid diff...")
+    (when (:skip-diff options)
+      (log/info "Skipping diff"))
 
-    (let [diff-result (srcmd/diff config-path)]
-      (condp = (:exit diff-result)
-        1 (do
-            (log/error "snapraid diff failed")
-            (exit-diff-fail))
-        2 (doseq [k diff-keys]
-            (when-let [v (get diff-result k)]
-              (log/info (str (str/capitalize (name k)) ": " v))))
-        (log/info "No differences detected"))
+    (let [diff-result (if (:skip-diff options) {}  (run-diff config-path))]
 
       ;;; ----------------------------------------------------------------------------
       ;;; Back up permissions.
       ;;; ----------------------------------------------------------------------------
 
-      ;; Only back up permissions if differences were detected.
-      (if (and (= (:exit diff-result) 2)
-               (some #(pos? (long (or (% diff-result) 0)))
-                     [:added :removed :updated :moved :copied :restored]))
-        (do
-          (log/info "Saving permissions...")
-          (perms/backup! {:drives (:data config)} perms-archive-retention-count))
+      ;; Back up permissions if diff was skipped, or if differences were detected.
+      (if (or (:skip-diff options) (changed? diff-result))
+        (save-permissions config)
         (log/info "Skipping saving permissions"))
 
       ;;; ----------------------------------------------------------------------------
       ;;; Run snapraid sync.
       ;;; ----------------------------------------------------------------------------
 
-      ;; Only run snapraid sync if differences were detected.
-      (if (and (= (:exit diff-result) 2)
-               (some #(pos? (long (or (% diff-result) 0)))
-                     [:added :removed :updated :moved :copied :restored]))
-        (do
-          (log/info "Running snapraid sync...")
-          (let [sync-result (srcmd/sync! config-path)]
-            (if (= (:exit sync-result) 1)
-              (do
-                (log/error "snapraid sync failed")
-                (exit-sync-fail)))))
-
+      ;; Run snapraid sync if diff was skipped, or if differences were detected.
+      (if (or (:skip-diff options) (changed? diff-result))
+        (run-sync config-path)
         (log/info "Skipping snapraid sync")))
 
     ;;; ----------------------------------------------------------------------------
@@ -274,13 +298,7 @@
     ;;; ----------------------------------------------------------------------------
 
     (if-not (:skip-scrub options)
-      (do
-        (log/info "Running snapraid scrub...")
-        (let [scrub-result (srcmd/scrub config-path options)]
-          (if (= (:exit scrub-result) 1)
-            (do
-              (log/error "snapraid scrub failed")
-              (exit-scrub-fail)))))
+      (run-scrub config-path options)
       (log/info "Skipping scrub"))
 
     ;;; ----------------------------------------------------------------------------
