@@ -64,12 +64,21 @@
   [dir]
   (let [bb-file (fs/path dir "bb.edn")
         src-dir (fs/path dir "src")
+        script-file (fs/path src-dir "script.bb")
         scripts-dir (fs/path dir "scripts")
         main-file (fs/path scripts-dir "main.bb")]
     (fs/delete-tree (fs/path dir))
     (fs/create-dirs (fs/parent bb-file))
     (fs/create-dirs src-dir)
-    (fs/copy (fs/path "src" "script.bb") src-dir)
+    (spit
+      (fs/file script-file)
+      (with-out-str
+        (pp/pprint '(ns script))
+        (pp/pprint '(defn run
+                      "Ensure that function f is only called when a script is run directly, not when it's required by another script."
+                      [f args]
+                      (when (= *file* (System/getProperty "babashka.file"))
+                        (apply f args))))))
     (fs/create-dirs scripts-dir)
     (spit (fs/file bb-file) (with-out-str (pp/pprint bb-edn)))
     (spit
