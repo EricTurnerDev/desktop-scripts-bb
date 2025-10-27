@@ -1,0 +1,105 @@
+#!/usr/bin/env bb
+
+(ns new-bb
+  "
+  Creates a new Babashka project.
+
+  USAGE:
+     new-bb [OPTIONS]
+
+  OPTIONS:
+     -h, --help           Display the help message.
+     -d, --directory DIR  Directory for the project.
+     -v, --version        Display the version.
+  "
+  (:require [babashka.fs :as fs]
+            [cli :as dscli]
+            [clojure.pprint :as pp]
+            [logging :as log]
+            [script]))
+
+(def ^:const cli-opts [["-h" "--help" "Display the help message"]
+                       ["-d", "--directory DIR" "Directory for the Babashka project"]
+                       ["-v" "--version" "Display the version"]])
+
+(def ^:const version "0.0.1")
+
+(def ^:const bb-edn
+  {:paths ["src" "scripts"]
+   :pods {}
+   :tasks
+   {'build
+    '(do
+       (shell "rm -rf out")
+       (shell "mkdir out")
+       (shell "bb uberscript out/main scripts/main.bb")
+       (shell "sed -i '1i #!/usr/bin/env bb' out/main")
+       (shell "chmod +x out/main"))}})
+
+(def ^:const main-ns
+  '(ns main
+     (:require [script])))
+
+(def ^:const main-fn
+  '(defn -main
+     [& args]
+     (println "Hello, Babashka!")))
+
+(def ^:const run-main
+  '(script/run -main *command-line-args*))
+
+(defn- help
+  "Prints help message."
+  []
+  (println (log/ns-doc 'new-bb)))
+
+(defn- exit-success []
+  (System/exit 0))
+
+(defn- exit-error []
+  (System/exit 1))
+
+(defn- create-project
+  "Creates a new project"
+  [dir]
+  (let [bb-file (fs/path dir "bb.edn")
+        src-dir (fs/path dir "src")
+        scripts-dir (fs/path dir "scripts")
+        main-file (fs/path scripts-dir "main.bb")]
+    (fs/delete-tree (fs/path dir))
+    (fs/create-dirs (fs/parent bb-file))
+    (fs/create-dirs src-dir)
+    (fs/copy (fs/path "src" "script.bb") src-dir)
+    (fs/create-dirs scripts-dir)
+    (spit (fs/file bb-file) (with-out-str (pp/pprint bb-edn)))
+    (spit
+      (fs/file main-file)
+      (with-out-str
+        (println "#!/usr/bin/env bb")
+        (pp/pprint main-ns)
+        (pp/pprint main-fn)
+        (pp/pprint run-main)))))
+
+(defn -main [& args]
+  (let [parsed-opts (cli/parse-opts args cli-opts #(dscli/handle-cli-errors % exit-error))
+        opts (:options parsed-opts)]
+
+    (when (:help opts)
+      (help)
+      (exit-success))
+
+    (when (:version opts)
+      (println version)
+      (exit-success))
+
+    (when (:directory opts)
+      (create-project (:directory opts))
+      (exit-success))
+
+    (binding [*out* *err*]
+      (println "Incorrect usage.")
+      (help)
+      (exit-error))
+    ))
+
+(script/run -main *command-line-args*)

@@ -4,12 +4,13 @@
  {build
   (do
     (shell "mkdir -p out")
-    (shell "rm -rf out/imgur out/paprika-to-recipesage out/postgresql-backup out/snapraid-aio out/youtube-download")
+    (shell "rm -rf out/new-bb out/imgur out/paprika-to-recipesage out/postgresql-backup out/snapraid-aio out/youtube-download")
 
     ;; REPL in the Intellij IDE seems to create this directory.
     (shell "rm -rf out/production")
 
     ;; Create the uberscript
+    (shell "bb uberscript out/new-bb scripts/new_bb.bb")
     (shell "bb uberscript out/imgur scripts/imgur.bb")
     (shell "bb uberscript out/paprika-to-recipesage scripts/paprika_to_recipesage.bb")
     (shell "bb uberscript out/postgresql-backup scripts/postgresql_backup.bb")
@@ -17,6 +18,7 @@
     (shell "bb uberscript out/youtube-download scripts/youtube_download.bb")
 
     ;; prepend shebang
+    (shell "sed -i '1i #!/usr/bin/env bb' out/new-bb")
     (shell "sed -i '1i #!/usr/bin/env bb' out/imgur")
     (shell "sed -i '1i #!/usr/bin/env bb' out/paprika-to-recipesage")
     (shell "sed -i '1i #!/usr/bin/env bb' out/postgresql-backup")
@@ -24,6 +26,7 @@
     (shell "sed -i '1i #!/usr/bin/env bb' out/youtube-download")
 
     ;; make it executable
+    (shell "chmod +x out/new-bb")
     (shell "chmod +x out/imgur")
     (shell "chmod +x out/paprika-to-recipesage")
     (shell "chmod +x out/postgresql-backup")

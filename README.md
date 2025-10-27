@@ -7,9 +7,10 @@ You may find some of them useful.
 
 ## Scripts
 
-* imgur - Upload images to Imgur from the command line.
-* paprika-to-recipesage - Import recipes from Paprika to RecipeSage.
-* postgresql-backup - Dump a postgresql database.
+* imgur — Upload images to Imgur from the command line.
+* new-bb — Create a new Babashka project.
+* paprika-to-recipesage — Import recipes from Paprika to RecipeSage.
+* postgresql-backup — Dump a postgresql database.
 * snapraid-aio — All-in-one SnapRAID script for managing a DAS (Direct Attached Storage).
 * youtube-download — Download YouTube videos by channel or video URL.
 

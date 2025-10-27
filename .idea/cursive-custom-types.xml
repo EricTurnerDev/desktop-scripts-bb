@@ -2,6 +2,7 @@
 <project version="4">
   <component name="CustomFileTypes">
     <file url="file://$PROJECT_DIR$/scripts/imgur.bb" value="BABASHKA" />
+    <file url="file://$PROJECT_DIR$/scripts/new_bb.bb" value="BABASHKA" />
     <file url="file://$PROJECT_DIR$/scripts/paprika_to_recipesage.bb" value="BABASHKA" />
     <file url="file://$PROJECT_DIR$/scripts/postgresql_backup.bb" value="BABASHKA" />
     <file url="file://$PROJECT_DIR$/scripts/snapraid_aio.bb" value="BABASHKA" />
