@@ -1,5 +1,8 @@
 (ns net
-  (:require [babashka.process :refer [shell]]
+  (:require [babashka.fs :as fs]
+            [babashka.http-client :as http]
+            [babashka.process :refer [shell]]
+            [clojure.java.io :as io]
             [command :as cmd])
   (:import (java.net URL)))
 
@@ -28,3 +31,18 @@
                                         "curl" "--insecure" "--output" "/dev/null" "--silent" "--fail" "-r" "0-0" u)
           result {:exit exit :out out :err err}]
       (= (:exit result) 0))))
+
+(defn download-file
+  "Downloads the file from url into dest-path, creating the parent directory if needed. Returns the path where it was
+  downloaded if successful, nil otherwise."
+  [url dest-path]
+  (try
+    (fs/create-dirs (fs/parent dest-path))
+    (with-open [in (:body (http/get url {:as :stream :follow-redirects true}))
+                out (io/output-stream dest-path)]
+      (io/copy in out)
+      dest-path)
+    (catch Exception e
+      (binding [*out* *err*]
+        (println "Unable to download " url ": " (.getMessage e)))
+      nil)))

@@ -16,13 +16,14 @@
             [cli :as dscli]
             [clojure.pprint :as pp]
             [logging :as log]
+            [net]
             [script]))
+
+(def ^:const version "0.0.2")
 
 (def ^:const cli-opts [["-h" "--help" "Display the help message"]
                        ["-d", "--directory DIR" "Directory for the Babashka project"]
                        ["-v" "--version" "Display the version"]])
-
-(def ^:const version "0.0.1")
 
 (def ^:const bb-edn
   {:paths ["src" "scripts"]
@@ -103,6 +104,7 @@
 
     (when (:directory opts)
       (create-project (:directory opts))
+      (net/download-file "https://raw.githubusercontent.com/github/gitignore/refs/heads/main/Global/JetBrains.gitignore" (str (fs/path (:directory opts) ".gitignore")))
       (exit-success))
 
     (binding [*out* *err*]
