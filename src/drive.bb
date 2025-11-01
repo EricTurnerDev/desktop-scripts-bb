@@ -37,3 +37,12 @@
     (and (zero? exit)
          (or (str/includes? out "PASSED")
              (str/includes? out "OK")))))
+
+(defn smart-managed?
+  "Returns true if smartctl is managing the device, else false. Throws an exception if not run as root."
+  [device]
+  (let [{:keys [out exit]} (shell {:out      :string
+                                   :err      :string}
+                                  "smartctl" "-i" device)]
+    (and (zero? exit)
+         (re-find #"SMART support is:\s+Enabled" out))))

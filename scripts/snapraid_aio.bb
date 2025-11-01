@@ -46,6 +46,7 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Constants.
 ;;; ----------------------------------------------------------------------------
+(def ^:const version "0.0.9")
 
 (def ^:const cli-options
   [["-c" "--config FILE" "SnapRAID configuration file"]
@@ -63,7 +64,6 @@
    ["-s" "--skip-scrub" "Don't run SnapRAID scrub"]
    ["-v" "--version" "Show the version"]])
 
-(def ^:const version "0.0.8")
 (def ^:const script-name "snapraid-aio")
 (def ^:const perms-archive-retention-count 1)
 (def ^:const lock-file (str "/tmp/" script-name ".lock"))
@@ -75,29 +75,17 @@
 ;;; General file and shell functions.
 ;;; ----------------------------------------------------------------------------
 
-(defn- exit-success []
-  (System/exit (:success excd/codes)))
+(defn- exit-fn [code]
+  (fn [] (System/exit code)))
 
-(defn- exit-diff-fail []
-  (System/exit (:diff-fail excd/codes)))
-
-(defn- exit-lock-fail []
-  (System/exit (:lock-fail excd/codes)))
-
-(defn- exit-preflight-fail []
-  (System/exit (:preflight-fail excd/codes)))
-
-(defn- exit-scrub-fail []
-  (System/exit (:scrub-fail excd/codes)))
-
-(defn- exit-smart-fail []
-  (System/exit (:smart-fail excd/codes)))
-
-(defn- exit-sync-fail []
-  (System/exit (:sync-fail excd/codes)))
-
-(defn- exit-snapraid-fail []
-  (System/exit (:snapraid-fail excd/codes)))
+(def exit-success (exit-fn (:success excd/codes)))
+(def exit-diff-fail (exit-fn (:diff-fail excd/codes)))
+(def exit-lock-fail (exit-fn (:lock-fail excd/codes)))
+(def exit-preflight-fail (exit-fn (:preflight-fail excd/codes)))
+(def exit-scrub-fail (exit-fn (:scrub-fail excd/codes)))
+(def exit-smart-fail (exit-fn (:smart-fail excd/codes)))
+(def exit-sync-fail (exit-fn (:sync-fail excd/codes)))
+(def exit-snapraid-fail (exit-fn (:snapraid-fail excd/codes)))
 
 (defn- save-permissions [config]
   (log/info "Saving permissions...")
