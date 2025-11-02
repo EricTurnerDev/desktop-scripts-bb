@@ -47,7 +47,7 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Constants.
 ;;; ----------------------------------------------------------------------------
-(def ^:const version "0.1.0")
+(def ^:const version "0.1.1")
 
 (def ^:const cli-options
   [["-c" "--config FILE" "SnapRAID configuration file"]
@@ -197,47 +197,20 @@
         (log/error "Error: This script must be run as root (use sudo).")
         (exit-preflight-fail)))
 
-    ;; Check that the snapraid command exists
-    (when-not (cmd/exists? "snapraid")
-      (log/error "SnapRAID not found")
-      (exit-snapraid-fail))
-
-    ;; Check that the mountpoint command exists
-    (when-not (cmd/exists? "mountpoint")
-      (log/error "mountpoint command was not found")
-      (exit-preflight-fail))
-
-    ;; Check that the findmnt command exists
-    (when-not (cmd/exists? "findmnt")
-      (log/error "findmnt command was not found")
-      (exit-preflight-fail))
-
-    ;; Check that the getfacl command exists
-    (when-not (cmd/exists? "getfacl")
-      (log/error "getfacl command was not found")
-      (exit-preflight-fail))
-
-    ;; Check that the hdparm command exists
-    (when-not (cmd/exists? "hdparm")
-      (log/error "hdparm command was not found")
-      (exit-preflight-fail))
-
-    ;; Check that the zip command exists
-    (when-not (cmd/exists? "zip")
-      (log/error "zip command was not found")
-      (exit-preflight-fail))
-
-    ;; Check that all the data drives are mounted
-    (let [data-drives (:data config)]
-      (when-not (every? drive/mounted? (mapv :path data-drives))
-        (log/error "Not all of the data drives are mounted")
+    ;; Check that required commands exist
+    (doseq [cmd ["snapraid" "mountpoint" "findmnt" "getfacl" "hdparm" "zip"]]
+      (when-not (cmd/exists? cmd)
+        (log/error (str cmd " not found"))
         (exit-preflight-fail)))
 
-    ;; Check that all the parity drives are mounted
-    (let [parity-files (:parity config)
-          parity-drives (mapv fs/parent parity-files)]
-      (when-not (every? drive/mounted? parity-drives)
-        (log/error "Not all of the parity drives are mounted")
+    ;; Check that all the drives are mounted
+    (let [data-drives (mapv :path (:data config))
+          parity-files (:parity config)
+          parity-drives (mapv fs/parent parity-files)
+          all-drives (into data-drives parity-drives)]
+      (println all-drives)
+      (when-not (every? drive/mounted? all-drives)
+        (log/error "Not all the drives are mounted")
         (exit-preflight-fail)))
 
     ;;; ----------------------------------------------------------------------------
