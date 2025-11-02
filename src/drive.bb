@@ -41,8 +41,17 @@
 (defn smart-managed?
   "Returns true if smartctl is managing the device, else false. Throws an exception if not run as root."
   [device]
-  (let [{:keys [out exit]} (shell {:out      :string
-                                   :err      :string}
+  (let [{:keys [out exit]} (shell {:out :string
+                                   :err :string}
                                   "smartctl" "-i" device)]
     (and (zero? exit)
          (re-find #"SMART support is:\s+Enabled" out))))
+
+(defn standby
+  "Puts a disk into standby mode."
+  [device]
+  (let [{:keys [exit]} (shell {:out      :string
+                               :err      :string
+                               :continue true}
+                              "hdparm" "-y" device)]
+    (zero? exit)))

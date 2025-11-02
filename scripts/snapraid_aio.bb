@@ -22,6 +22,7 @@
      -i, --ignore-smart        Continue even when S.M.A.R.T. tests indicate problems
      -o, --older-than DAYS     Scrub blocks of the array older than DAYS. Defaults to 10.
      -p, --scrub-percent PERC  The percentage of blocks for SnapRAID to scrub. Defaults to 10.
+     -b, --standby             Put the drives into standby mode when done
      -d, --skip-diff           Don't run SnapRAID diff (forces sync)
      -s, --skip-scrub          Don't run SnapRAID scrub
      -v, --version             Show the version
@@ -46,7 +47,7 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Constants.
 ;;; ----------------------------------------------------------------------------
-(def ^:const version "0.0.9")
+(def ^:const version "0.1.0")
 
 (def ^:const cli-options
   [["-c" "--config FILE" "SnapRAID configuration file"]
@@ -60,6 +61,7 @@
     "Percentage of blocks for SnapRAID to scrub (0-100)"
     :parse-fn (fn [s] (try (Long/parseLong s) (catch Exception _ nil)))
     :validate [#(and (number? %) (<= 0 % 100)) "Must be an integer between 0 and 100"]]
+   ["-b" "--standby" "Put drives into standby mode when done"]
    ["-d" "--skip-diff" "Don't run SnapRAID diff"]
    ["-s" "--skip-scrub" "Don't run SnapRAID scrub"]
    ["-v" "--version" "Show the version"]])
@@ -129,6 +131,22 @@
         (log/error "snapraid scrub failed")
         (exit-scrub-fail)))))
 
+(defn- get-options
+  [args]
+  (let [parsed-opts (dscli/parse-opts args cli-options #(dscli/handle-cli-errors % exit-preflight-fail))
+        options (:options parsed-opts)]
+    options))
+
+(defn- get-config-path
+  [options]
+  (srconf/resolve-path (:config options)))
+
+(defn- get-config
+  [options]
+  (let [config-path (get-config-path options)
+        config (-> config-path slurp srconf/parse)]
+    config))
+
 (defn -main [& args]
   ;; Configure logging. Root logs to /var/log/, everyone else to /tmp/ .
   (let [log-file (if (= (user-utils/uid) 0)
@@ -136,10 +154,9 @@
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))
 
-  (let [parsed-opts (dscli/parse-opts args cli-options #(dscli/handle-cli-errors % exit-preflight-fail))
-        options (:options parsed-opts)
-        config-path (srconf/resolve-path (:config options))
-        config (-> config-path slurp srconf/parse)]
+  (let [options (get-options args)
+        config-path (get-config-path options)
+        config (get-config options)]
 
     (when-not config
       (log/error "No readable snapraid.conf was found.")
@@ -198,6 +215,11 @@
     ;; Check that the getfacl command exists
     (when-not (cmd/exists? "getfacl")
       (log/error "getfacl command was not found")
+      (exit-preflight-fail))
+
+    ;; Check that the hdparm command exists
+    (when-not (cmd/exists? "hdparm")
+      (log/error "hdparm command was not found")
       (exit-preflight-fail))
 
     ;; Check that the zip command exists
@@ -261,7 +283,7 @@
     (when (:skip-diff options)
       (log/info "Skipping diff"))
 
-    (let [diff-result (if (:skip-diff options) {}  (run-diff config-path))]
+    (let [diff-result (if (:skip-diff options) {} (run-diff config-path))]
 
       ;;; ----------------------------------------------------------------------------
       ;;; Back up permissions.
@@ -288,6 +310,19 @@
     (if-not (:skip-scrub options)
       (run-scrub config-path options)
       (log/info "Skipping scrub"))
+
+    ;;; ----------------------------------------------------------------------------
+    ;;; Put the drives into standby
+    ;;; ----------------------------------------------------------------------------
+
+    (when (:standby options)
+      (log/info "Putting drives into standby mode")
+      (let [data-devs (mapv #(drive/mount-source (:path %)) (:data config))
+            parity-drives (mapv #(str (fs/parent %)) (:parity config))
+            parity-devs (mapv drive/mount-source parity-drives)
+            all-devs (into data-devs parity-devs)]
+        (doseq [dev all-devs]
+          (drive/standby dev))))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Finish.
