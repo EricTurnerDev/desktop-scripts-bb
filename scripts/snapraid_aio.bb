@@ -208,7 +208,6 @@
           parity-files (:parity config)
           parity-drives (mapv fs/parent parity-files)
           all-drives (into data-drives parity-drives)]
-      (println all-drives)
       (when-not (every? drive/mounted? all-drives)
         (log/error "Not all the drives are mounted")
         (exit-preflight-fail)))
