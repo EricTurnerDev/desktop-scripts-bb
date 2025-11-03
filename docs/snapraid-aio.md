@@ -42,6 +42,7 @@ snapraid-aio [options]
 | `-h`, `--help`          | Display helpful information.                           |
 | `-i`, `--ignore-smart`  | Continue even when S.M.A.R.T. tests indicate problems. |
 | `-p`, `--scrub-percent` | Percentage of blocks to scrub (0-100). Default 10.     |
+| `-b`, `--standby`       | Put drives into standby mode when done.                |
 | `-d`, `--skip-diff`     | Don't run SnapRAID diff.                               |
 | `-s`, `--skip-scrub`    | Don't run SnapRAID scrub.                              |
 | `-v`, `--version`       | Display the version.                                   |
