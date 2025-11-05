@@ -42,6 +42,7 @@
             [cli :as dscli]
             [lock]
             [logging :as log]
+            [recipe-sage.paprika :as paprika]
             [recipe-sage.db :as db]
             [script]
             [user-utils])
@@ -220,6 +221,9 @@
     ;; RecipeSage's import feature has a bug that puts ratings in the notes field
     ;; instead of setting the rating of the recipe. This works around that bug.
     (db/update-ratings!)
+
+    ;; Change the creation dates of the recipes to the values from the recipes in the .paprikarecipes file.
+    (paprika/with-recipes (:file options) (fn [_ recipe] (recipe-sage.db/update-creation-date! recipe)))
 
     (log/info "Done")
     (exit-success)))

@@ -1,6 +1,11 @@
 (ns recipe-sage.db
   (:require [pod.babashka.postgresql :as pg]))
 
+(def ^:private allowed-keys
+  #{:dbtype :dbname :host :port :user :password})
+
+;; -- Database Connection ----------------------------------------------------------------------------------------------
+
 (def ^:private default-db-spec {:dbtype "postgresql"
                                 :dbname "recipesage_selfhost"
                                 :host   "127.0.0.1"
@@ -8,9 +13,6 @@
                                 :user   "recipesage_selfhost"})
 
 (defonce ^:private db-spec* (atom default-db-spec))
-
-(def ^:private allowed-keys
-  #{:dbtype :dbname :host :port :user :password})
 
 (defn current-spec
   "Return the current DB spec map (for pg/execute! etc)."
@@ -35,6 +37,8 @@
   ([overrides]
    (reset! db-spec* (merge default-db-spec (select-keys overrides allowed-keys)))))
 
+;; -- Database Query Functions -----------------------------------------------------------------------------------------
+
 (defn get-label
   "Gets a recipe from the RecipeSage PostgreSQL database."
   [label]
@@ -45,6 +49,8 @@
   []
   (let [query ["SELECT u.id FROM \"Recipes\" r INNER JOIN \"Users\" u ON r.\"userId\"=u.id ORDER BY r.\"createdAt\" DESC LIMIT 1"]]
     (first (pg/execute! (current-spec) query))))
+
+;; -- Database Modification Functions ----------------------------------------------------------------------------------
 
 (defn create-label!
   "Create a new label in RecipeSage."
@@ -93,7 +99,18 @@
   []
   (doseq [n (range 1 6)]
     (let [query ["UPDATE \"Recipes\"
-                  SET rating=?
+                  SET \"rating\"=?
                   WHERE \"notes\" LIKE ?"
-                 n (str "%Rating: " n " %")]]
+                 n
+                 (str "%Rating: " n "%")]]
       (pg/execute! (current-spec) query))))
+
+(defn update-creation-date!
+  "Sets the creation date on a recipe in RecipeSage to the value from the Paprika recipe."
+  [paprika-recipe]
+  (let [query ["UPDATE \"Recipes\"
+                SET \"createdAt\"=(?::timestamp AT TIME ZONE 'America/New_York')
+                WHERE \"title\"=?"
+               (:created paprika-recipe)
+               (:name paprika-recipe)]]
+    (pg/execute! (current-spec) query)))
