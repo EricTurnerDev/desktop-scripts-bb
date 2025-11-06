@@ -26,6 +26,7 @@ the "paprika" label to them.
 - Creates the "paprika" label if it doesn't exist.
 - Prevents multiple instances of this script from running simultaneously.
 - Sets recipe ratings to overcome a RecipeSage import bug.
+- Sets the recipe creation date from the original Paprika recipe file.
 - Extensive parameter checking.
 - Logs activity to a log file.
 
