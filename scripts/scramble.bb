@@ -2,6 +2,8 @@
 
 (ns scramble
   "
+  Encrypts or decrypts a file.
+
   Encrypts or decrypts a file with a password using GnuPG. When encrypting, the resulting encrypted file name will end
   in a `.scramble` extension. When decrypting, the resulting unencrypted file name will not end in a `.scramble` extension.
 
@@ -11,6 +13,12 @@
   OPTIONS:
     -h, --help   Show the help message
     -k, --keep   Don't delete FILE when done
+
+  EXAMPLES:
+    scramble /tmp/example.txt
+
+  AUTHOR:
+    jittery-name-ninja@duck.com
   "
   (:require [babashka.fs :as fs]
             [babashka.process :refer [shell]]
