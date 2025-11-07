@@ -8,15 +8,14 @@
    The image can be provided through the --image option, or from stdin. The Imgur URL of the image is printed to stdout.
 
    USAGE:
-     imgur [OPTIONS]
+     imgur [OPTIONS] [FILE|URL]
 
    OPTIONS:
      -h, --help            Show the help message
-     -i, --image           The file path or URL of the image to upload
      -v, --version         Show the version
 
    EXAMPLES:
-     imgur --image http://example.com/image.jpg
+     imgur http://example.com/image.jpg
      echo http://example.com/image.jpg | imgur
 
    AUTHOR:
@@ -39,13 +38,13 @@
   (:import (java.nio.file Files)
            (java.util UUID)))
 
+(def ^:const version "0.1.0")
+(def ^:const script-name "imgur")
+
 (def ^:const cli-options
   [["-h" "--help" "Show the help message"]
-   ["-i" "--image IMAGE" "The path or URL for the image to upload"]
    ["-v" "--version" "Show the version"]])
 
-(def ^:const version "0.0.1")
-(def ^:const script-name "imgur")
 
 (defn- exit-success []
   (System/exit (:success excd/codes)))
@@ -144,7 +143,8 @@
     (log/configure! {:file log-file}))
 
   (let [parsed-opts (dscli/parse-opts args cli-options #(dscli/handle-cli-errors % exit-fail))
-        options (:options parsed-opts)]
+        options (:options parsed-opts)
+        file-path (first (:arguments parsed-opts))]
 
     ;;; ----------------------------------------------------------------------------
     ;;; Handle --help or --version if they were used.
@@ -157,36 +157,21 @@
 
     ;; Show the version.
     (when (:version options)
-      (println script-name "version" version)
+      (println version)
       (exit-success))
 
-    ;; Image option can be provided by the --image option, or from stdin.
-    (let [image-opt (or (:image options)
+    ;; Image option can be provided by the argument, or from stdin.
+    (let [image-opt (or file-path
                         (some-> (slurp *in*) str/trim not-empty))]
 
       ;;; ----------------------------------------------------------------------------
       ;;; Run preflight checks.
       ;;; ----------------------------------------------------------------------------
 
-      ;; curl command exists.
-      (when-not (cmd/exists? "curl")
-        (log/error "curl not found.")
-        (exit-fail))
-
-      ;; ImageMagick identify command exists.
-      (when-not (cmd/exists? "identify")
-        (log/error "ImageMagick identify not found.")
-        (exit-fail))
-
-      ;; xargs command exists.
-      (when-not (cmd/exists? "xargs")
-        (log/error "xargs not found.")
-        (exit-fail))
-
-      ;; jq command exists.
-      (when-not (cmd/exists? "jq")
-        (log/error "jq not found.")
-        (exit-fail))
+      (doseq [c ["curl" "identify" "xargs" "jq"]]
+        (when-not (cmd/exists? c)
+          (log/error (str c " not found."))
+          (exit-fail)))
 
       ;; Image file path or URL was provided.
       (when-not image-opt
