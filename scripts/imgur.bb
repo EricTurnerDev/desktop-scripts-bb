@@ -26,17 +26,16 @@
             [clojure.java.io :as io]
             [babashka.fs :as fs]
             [babashka.http-client :as http]
-            [babashka.process :refer [shell]]
             [cli :as dscli]
             [clojure.string :as str]
             [command :as cmd]
+            [image :as img]
             [logging :as log]
             [net]
             [script]
             [user-utils]
             [imgur.exit-codes :as excd])
-  (:import (java.nio.file Files)
-           (java.util UUID)))
+  (:import (java.nio.file Files)))
 
 (def ^:const version "0.1.0")
 (def ^:const script-name "imgur")
@@ -45,68 +44,11 @@
   [["-h" "--help" "Show the help message"]
    ["-v" "--version" "Show the version"]])
 
+(defn- exit-fn [code] (fn [] (System/exit code)))
+(def exit-success (exit-fn (:success excd/codes)))
+(def exit-fail (exit-fn (:fail excd/codes)))
 
-(defn- exit-success []
-  (System/exit (:success excd/codes)))
-
-(defn- exit-fail []
-  (System/exit (:fail excd/codes)))
-
-(defn- image?
-  "Determines if file f is an image. Returns true or false."
-  [f]
-  (if (empty? f)
-    false
-    (let [{:keys [out err exit]} (shell {:out      :string
-                                         :err      :string
-                                         :continue true}
-                                        "identify" f)
-          result {:exit exit :out out :err err}]
-      (= (:exit result) 0))))
-
-(defn- image-valid?
-  "Checks if file f is an image that can be read. Returns true or false."
-  [f]
-  (and (fs/exists? f) (fs/readable? f) (image? f)))
-
-(defn- extension-from-content-type
-  "Converts content type to file extension."
-  [ctype]
-  (case (some-> ctype str/lower-case)
-    "image/jpeg" ".jpg"
-    "image/jpg" ".jpg"
-    "image/png" ".png"
-    "image/gif" ".gif"
-    "image/webp" ".webp"
-    "image/bmp" ".bmp"
-    "image/svg+xml" ".svg"
-    ;; fallback
-    ".img"))
-
-(defn download-image!
-  "Download an image from url to /tmp. Returns the filesystem path to the image, or nil if it could not be downloaded."
-  [url]
-  (try (let [resp (http/get url {:as               :bytes
-                                 :follow-redirects :always
-                                 :throw            false})
-             status (:status resp)
-             ctype (some-> (get-in resp [:headers "content-type"]) str/lower-case)]
-         (if (and status (< status 400) ctype (str/starts-with? ctype "image/"))
-           ;; Looks like an image, so write it out to /tmp.
-           (let [basename (some-> url (str/split #"/") last not-empty)
-                 ext (or (some->> basename (re-find #"\.[A-Za-z0-9]+$"))
-                         (extension-from-content-type ctype))
-                 fname (or basename (str (UUID/randomUUID) ext))
-                 target (fs/path "/tmp" fname)]
-             (fs/write-bytes target (:body resp))
-             (str target))
-           ;; Not an image, so return nil.
-           nil))
-       (catch Exception _
-         ;; Couldn't download it, so return nil.
-         nil)))
-
-(defn upload-image!
+(defn- image->imgur!
   "Upload an image file f from the filesystem to Imgur. Returns the Imgur URL of the image, or nil if the image could not be uploaded."
   [^String f]
   (try
@@ -146,9 +88,9 @@
         options (:options parsed-opts)
         file-path (first (:arguments parsed-opts))]
 
-    ;;; ----------------------------------------------------------------------------
+    ;;; ----------------------------------------------------------------------------------------------------------------
     ;;; Handle --help or --version if they were used.
-    ;;; ----------------------------------------------------------------------------
+    ;;; ----------------------------------------------------------------------------------------------------------------
 
     ;; Show the help message.
     (when (:help options)
@@ -164,18 +106,18 @@
     (let [image-opt (or file-path
                         (some-> (slurp *in*) str/trim not-empty))]
 
-      ;;; ----------------------------------------------------------------------------
+      ;;; --------------------------------------------------------------------------------------------------------------
       ;;; Run preflight checks.
-      ;;; ----------------------------------------------------------------------------
+      ;;; --------------------------------------------------------------------------------------------------------------
 
       (doseq [c ["curl" "identify" "xargs" "jq"]]
         (when-not (cmd/exists? c)
-          (log/error (str c " not found."))
+          (log/error (str c " is required to use imgur, but could not be found."))
           (exit-fail)))
 
       ;; Image file path or URL was provided.
       (when-not image-opt
-        (log/error "Image is required.")
+        (log/error "An input image is required by imgur.")
         (exit-fail))
 
       ;; url can be read.
@@ -183,18 +125,18 @@
         (log/error (str image-opt " cannot be read."))
         (exit-fail))
 
-      ;;; ----------------------------------------------------------------------------
+      ;;; --------------------------------------------------------------------------------------------------------------
       ;;; Upload the image to Imgur
-      ;;; ----------------------------------------------------------------------------
+      ;;; --------------------------------------------------------------------------------------------------------------
 
-      (let [downloaded-file (download-image! image-opt)
+      (let [downloaded-file (img/download-image! image-opt)
             image (or downloaded-file image-opt)]
 
-        (when-not (image-valid? image)
-          (log/error (str image-opt " is not a valid image."))
+        (when-not (img/image-valid? image)
+          (log/error (str image-opt " is not a valid image for imgur."))
           (exit-fail))
 
-        (let [imgur-url (upload-image! image)]
+        (let [imgur-url (image->imgur! image)]
           (println imgur-url))
 
         ;; We don't want downloaded images in /tmp to consume disk space.

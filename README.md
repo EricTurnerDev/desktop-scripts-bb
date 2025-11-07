@@ -7,10 +7,13 @@ You may find some of them useful.
 
 ## Scripts
 
+* flip-img — Flip an image horizontally or vertically from the command line.
 * imgur — Upload images to Imgur from the command line.
 * new-bb — Create a new Babashka project.
 * paprika-to-recipesage — Import recipes from Paprika to RecipeSage.
 * postgresql-backup — Dump a postgresql database.
+* resize-img — resize an image by width or percentage (maintaining aspect ratio) from the command line.
+* rotate-img — rotate an image from the command line.
 * snapraid-aio — All-in-one SnapRAID script for managing a DAS (Direct Attached Storage).
 * youtube-download — Download YouTube videos by channel or video URL.
 
@@ -32,7 +35,7 @@ somewhere on your `$PATH`, and you'll be able to run them like any other shell s
 ### Project Structure
 
 - `docs/` contains Markdown documents for each script.
-- `idea-stubs/` contains namespaces to eliminate errors in the IDE.
+- `ide-stubs/` contains namespaces to eliminate errors in the IDE.
 - `out/` contains the built scripts that you install.
 - `scripts/` contains the Babashka scripts.
 - `src/` contains namespaces used by the Babashka scripts. Think of these like libraries.

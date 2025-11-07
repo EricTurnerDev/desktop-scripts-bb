@@ -18,7 +18,7 @@ A [Babashka](https://github.com/babashka/babashka)-powered tool that uploads ima
 ## 🚀 Usage
 
 ```bash
-imgur [options]
+imgur [options] [file|url]
 ```
 
 ### Options
@@ -34,9 +34,9 @@ The filename or URL can also be provided to stdin instead of using the `-i` or `
 Examples:
 
 ```bash
-imgur --image /path/to/image.png
+imgur /path/to/image.png
 echo /path/to/image.png | imgur
-imgur -i "https://www.example.com/image.png"
+imgur "https://www.example.com/image.png"
 echo https://www.example.com/image.png | imgur
 imgur --help
 imgur --version
