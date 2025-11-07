@@ -1,37 +1,45 @@
 {:paths ["src" "scripts"]
  :pods  {org.babashka/postgresql {:version "0.1.4"}}
+
  :tasks
- {build
-  (do
-    (shell "mkdir -p out")
-    (shell "rm -rf out/new-bb out/imgur out/paprika-to-recipesage out/postgresql-backup out/snapraid-aio out/youtube-download")
+ {:init (do
+          (require '[babashka.fs :as fs])
+          (require '[clojure.string :as str])
+          (require '[babashka.tasks :as tasks]))
 
-    ;; REPL in the Intellij IDE seems to create this directory.
-    (shell "rm -rf out/production")
+  clean
+  {:task (do
+           (when (babashka.fs/exists? "out") (babashka.fs/delete-tree "out"))
+           (println "Clean complete."))}
 
-    ;; Create the uberscript
-    (shell "bb uberscript out/new-bb scripts/new_bb.bb")
-    (shell "bb uberscript out/imgur scripts/imgur.bb")
-    (shell "bb uberscript out/paprika-to-recipesage scripts/paprika_to_recipesage.bb")
-    (shell "bb uberscript out/postgresql-backup scripts/postgresql_backup.bb")
-    (shell "bb uberscript out/snapraid-aio scripts/snapraid_aio.bb")
-    (shell "bb uberscript out/youtube-download scripts/youtube_download.bb")
+  build
+  {:depends [clean]
+   :task    (do
+              (babashka.fs/create-dirs "out")
 
-    ;; prepend shebang
-    (shell "sed -i '1i #!/usr/bin/env bb' out/new-bb")
-    (shell "sed -i '1i #!/usr/bin/env bb' out/imgur")
-    (shell "sed -i '1i #!/usr/bin/env bb' out/paprika-to-recipesage")
-    (shell "sed -i '1i #!/usr/bin/env bb' out/postgresql-backup")
-    (shell "sed -i '1i #!/usr/bin/env bb' out/snapraid-aio")
-    (shell "sed -i '1i #!/usr/bin/env bb' out/youtube-download")
+              (defn ->bin-name [script-path]
+                (-> script-path
+                  babashka.fs/file-name
+                  (clojure.string/replace (re-pattern "\\.bb$") "")
+                  (clojure.string/replace "_" "-")))
 
-    ;; make it executable
-    (shell "chmod +x out/new-bb")
-    (shell "chmod +x out/imgur")
-    (shell "chmod +x out/paprika-to-recipesage")
-    (shell "chmod +x out/postgresql-backup")
-    (shell "chmod +x out/snapraid-aio")
-    (shell "chmod +x out/youtube-download")
+              (defn prepend-shebang! [f]
+                (let [tmp (str f ".tmp")]
+                  (spit tmp (str "#!/usr/bin/env bb\n" (slurp f)))
+                  (babashka.fs/move tmp f {:replace-existing true})))
 
-    (println "Build complete."))}
- }
+              (let [scripts (seq (babashka.fs/glob "scripts" "*.bb"))]
+                (when-not scripts
+                  (println "No .bb scripts found under scripts/. Nothing to build."))
+                (doseq [p scripts]
+                  (let [script (str p)
+                        bin (->bin-name script)
+                        out (str (fs/path "out" bin))]
+                    (babashka.tasks/shell (format "bb uberscript %s %s" out script))
+                    (prepend-shebang! out)
+                    (babashka.fs/set-posix-file-permissions
+                      out
+                      (java.nio.file.attribute.PosixFilePermissions/fromString "rwxr-xr-x"))
+                    (println "Built" out))))
+
+              (println "Build complete."))}}}
