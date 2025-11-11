@@ -34,7 +34,7 @@
             [logging :as log]
             [lock]
             [script]
-            [user-utils])
+            [user-utils :as user])
   (:import (java.time LocalDateTime ZoneId)
            (java.time.format DateTimeFormatter)))
 
@@ -135,7 +135,7 @@
 
   ;; Configure logging. Root logs to /var/log/, everyone else to /tmp/ .
   ;; TODO: log-file name should have the database name in it since we probably want a different log per database.
-  (let [log-file (if (= (user-utils/uid) 0)
+  (let [log-file (if (user/superuser?)
                    (str "/var/log/" script-name ".log")
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))

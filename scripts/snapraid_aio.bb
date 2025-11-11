@@ -38,7 +38,7 @@
             [logging :as log]
             [lock]
             [script]
-            [user-utils]
+            [user-utils :as user]
             [snapraid.commands :as srcmd]
             [snapraid.config :as srconf]
             [snapraid.exit-codes :as excd]
@@ -87,7 +87,6 @@
 (def exit-scrub-fail (exit-fn (:scrub-fail excd/codes)))
 (def exit-smart-fail (exit-fn (:smart-fail excd/codes)))
 (def exit-sync-fail (exit-fn (:sync-fail excd/codes)))
-(def exit-snapraid-fail (exit-fn (:snapraid-fail excd/codes)))
 
 (defn- save-permissions [config]
   (log/info "Saving permissions...")
@@ -149,7 +148,7 @@
 
 (defn -main [& args]
   ;; Configure logging. Root logs to /var/log/, everyone else to /tmp/ .
-  (let [log-file (if (= (user-utils/uid) 0)
+  (let [log-file (if (user/superuser?)
                    (str "/var/log/" script-name ".log")
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))
@@ -192,10 +191,9 @@
     ;; TODO: Instead of forcing to run as root, check permissions on the resources we need to access, and error if
     ;; the current user doesn't have permissions to access those resources. That way the system admin can choose how to
     ;; run this script however they see fit.
-    (let [id (user-utils/uid)]
-      (when-not (= 0 id)
-        (log/error "Error: This script must be run as root (use sudo).")
-        (exit-preflight-fail)))
+    (when-not (user/superuser?)
+      (log/error "Error: This script must be run as root (use sudo).")
+      (exit-preflight-fail))
 
     ;; Check that required commands exist
     (doseq [cmd ["snapraid" "mountpoint" "findmnt" "getfacl" "hdparm" "zip"]]

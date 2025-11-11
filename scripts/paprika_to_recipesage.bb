@@ -45,7 +45,7 @@
             [recipe-sage.paprika :as paprika]
             [recipe-sage.db :as db]
             [script]
-            [user-utils])
+            [user-utils :as user])
   (:import (java.io File)))
 
 (def ^:const cli-options
@@ -144,7 +144,7 @@
 (defn -main [& args]
 
   ;; Configure logging
-  (let [log-file (if (= (user-utils/uid) 0)
+  (let [log-file (if (user/superuser?)
                    (str "/var/log/" script-name ".log")
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))

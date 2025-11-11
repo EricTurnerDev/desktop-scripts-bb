@@ -9,3 +9,8 @@
   (try
     (Integer/parseInt (str/trim (:out (sh "id" "-u"))))
     (catch Exception _ -1)))
+
+(defn superuser?
+  "Determines if the current user is a superuser (i.e. running as root or using sudo)."
+  []
+  (= (uid) 0))

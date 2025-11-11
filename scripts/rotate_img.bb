@@ -33,7 +33,7 @@
             [logging :as log]
             [net]
             [script]
-            [user-utils]))
+            [user-utils :as user]))
 
 (def ^:const version "0.0.1")
 
@@ -53,7 +53,7 @@
   [& args]
 
   ;; Configure logging
-  (let [log-file (if (= (user-utils/uid) 0)
+  (let [log-file (if (user/superuser?)
                    (str "/var/log/rotate-img.log")
                    (str "/tmp/rotate-img.log"))]
     (log/configure! {:file log-file}))

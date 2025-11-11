@@ -23,7 +23,7 @@
             [logging :as log]
             [net]
             [script]
-            [user-utils]))
+            [user-utils :as user]))
 
 (def ^:const exit-codes {:success 0 :fail 1})
 (def ^:const script-name "youtube-download")
@@ -51,7 +51,7 @@
 (defn -main [& args]
 
   ;; Configure logging. Root logs to /var/log/, everyone else to /tmp/ .
-  (let [log-file (if (= (user-utils/uid) 0)
+  (let [log-file (if (user/superuser?)
                    (str "/var/log/" script-name ".log")
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))

@@ -33,7 +33,7 @@
             [logging :as log]
             [net]
             [script]
-            [user-utils]
+            [user-utils :as user]
             [imgur.exit-codes :as excd])
   (:import (java.nio.file Files)))
 
@@ -79,7 +79,7 @@
   [& args]
 
   ;; Configure logging. Root logs to /var/log/, everyone else to /tmp/ .
-  (let [log-file (if (= (user-utils/uid) 0)
+  (let [log-file (if (user/superuser?)
                    (str "/var/log/" script-name ".log")
                    (str "/tmp/" script-name ".log"))]
     (log/configure! {:file log-file}))
