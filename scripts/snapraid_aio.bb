@@ -271,7 +271,7 @@
       ;; Run snapraid sync if diff was skipped, or if differences were detected.
       (if (or (:skip-diff options) (changed? diff-result))
         (run-sync config-path)
-        (log/info "Skipping snapraid sync")))
+        (log/info "Skipping sync")))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Run snapraid scrub.
