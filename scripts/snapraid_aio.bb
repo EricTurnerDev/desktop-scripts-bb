@@ -18,14 +18,14 @@
    OPTIONS:
      -c, --config CONFIG       Path to the SnapRAID configuration file. Defaults to /usr/local/etc/snapraid.conf
                                followed by /etc/snapraid.conf.
-     -h, --help                Show the help message
-     -i, --ignore-smart        Continue even when S.M.A.R.T. tests indicate problems
+     -h, --help                Show the help message.
+     -i, --ignore-smart        Continue even when S.M.A.R.T. tests indicate problems.
      -o, --older-than DAYS     Scrub blocks of the array older than DAYS. Defaults to 10.
      -p, --scrub-percent PERC  The percentage of blocks for SnapRAID to scrub. Defaults to 10.
-     -b, --standby             Put the drives into standby mode when done
-     -d, --skip-diff           Don't run SnapRAID diff (forces sync)
-     -s, --skip-scrub          Don't run SnapRAID scrub
-     -v, --version             Show the version
+     -b, --standby             Put the drives into standby mode when done.
+     -d, --skip-diff           Don't run SnapRAID diff (forces sync).
+     -s, --skip-scrub          Don't run SnapRAID scrub.
+     -v, --version             Show the version.
 
    AUTHOR:
      jittery-name-ninja@duck.com"

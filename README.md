@@ -14,10 +14,23 @@ You may find some of them useful.
 * postgresql-backup — Dump a postgresql database.
 * resize-img — resize an image by width or percentage (maintaining aspect ratio) from the command line.
 * rotate-img — rotate an image from the command line.
+* scramble — encrypt or decrypt a file using a passphrase.
 * snapraid-aio — All-in-one SnapRAID script for managing a DAS (Direct Attached Storage).
 * youtube-download — Download YouTube videos by channel or video URL.
 
 Every script can be run with the `--help` or `-h` option to learn how to use it.
+
+---
+
+## Prerequisites
+
+These scripts have only been tested on Linux Mint. They should work with few or no
+modifications on other Linux distributions.
+
+[Babashka must be installed](https://github.com/babashka/babashka#installation).
+
+Each script will expect to be able to run various shell commands, and will check if those
+shell commands can be executed when you run the script.
 
 ---
 
