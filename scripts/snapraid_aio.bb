@@ -292,7 +292,7 @@
             parity-devs (mapv drive/mount-source parity-drives)
             all-devs (into data-devs parity-devs)]
         (doseq [dev all-devs]
-          (drive/standby dev))))
+          (drive/standby! dev))))
 
     ;;; ----------------------------------------------------------------------------
     ;;; Finish.

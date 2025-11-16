@@ -47,7 +47,7 @@
     (and (zero? exit)
          (re-find #"SMART support is:\s+Enabled" out))))
 
-(defn standby
+(defn standby!
   "Puts a disk into standby mode."
   [device]
   (let [{:keys [exit]} (shell {:out      :string
