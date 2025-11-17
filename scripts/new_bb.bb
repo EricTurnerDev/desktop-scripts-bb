@@ -27,9 +27,24 @@
 
 (def ^:const bb-edn
   {:paths ["src" "scripts"]
-   :pods {}
+   :pods  {}
    :tasks
-   {'build
+   {'test
+    '{:extra-paths      ["test"]
+     :extra-deps       {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+     :task             (exec 'cognitect.test-runner.api/test)
+     :exec-args        {:dirs ["test"]}
+     ;; If the user passes --nses (namespaces) or --vars (variables) on the command line, they will be coerced into the
+     ;; `clojure.lang.Symbol`s that the Cognitect test runner expects.
+     ;;   :nses = run tests only from these namespaces
+     ;;   :vars = run only these test vars inside those namespaces
+     ;; Examples:
+     ;;   bb test
+     ;;   bb test --nses example-test
+     ;;   bb test --vars example-test/first-test
+     :org.babashka/cli {:coerce {:nses [:symbol]
+                                 :vars [:symbol]}}}
+    'build
     '(do
        (shell "rm -rf out")
        (shell "mkdir out")
@@ -67,7 +82,9 @@
         src-dir (fs/path dir "src")
         script-file (fs/path src-dir "script.bb")
         scripts-dir (fs/path dir "scripts")
-        main-file (fs/path scripts-dir "main.bb")]
+        main-file (fs/path scripts-dir "main.bb")
+        test-dir (fs/path dir "test")
+        test-file (fs/path test-dir "example_test.clj")]
     (fs/delete-tree (fs/path dir))
     (fs/create-dirs (fs/parent bb-file))
     (fs/create-dirs src-dir)
@@ -88,7 +105,16 @@
         (println "#!/usr/bin/env bb")
         (pp/pprint main-ns)
         (pp/pprint main-fn)
-        (pp/pprint run-main)))))
+        (pp/pprint run-main)))
+    (fs/create-dirs test-dir)
+    (spit
+      (fs/file test-file)
+      (with-out-str
+        (pp/pprint '(ns example-test
+                      (:require [clojure.test :refer [deftest is testing]])))
+        (pp/pprint '(deftest first-test
+                             (testing "Testing equality"
+                                      (is (= 1 1)))))))))
 
 (defn -main [& args]
   (let [parsed-opts (cli/parse-opts args cli-opts #(dscli/handle-cli-errors % exit-error))
