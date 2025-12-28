@@ -1,6 +1,5 @@
 {:paths ["src" "scripts"]
  :pods  {org.babashka/postgresql {:version "0.1.4"}}
-
  :tasks
  {:init (do
           (require '[babashka.fs :as fs])
